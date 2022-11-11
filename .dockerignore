@@ -1,0 +1,14 @@
+**/__pycache__
+**/.vscode
+**/.venv
+**/.git
+old
+bin
+deployment
+infrastructure
+tests
+ci
+doc
+lib
+.reports
+tests
