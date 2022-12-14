@@ -18,8 +18,7 @@ RUN python3 -m venv /venv
 # Also, pip should be upgraded in the same RUN command so that pip upgrade is not cached
 # in a different layer than poetry install, for the same reason as above.
 ARG DEVICE
-ENV DEVICE=$DEVICE \
-    TORCH_HOME=/venv/torch
+ENV DEVICE=$DEVICE
 COPY requirements-${DEVICE}.txt post-install.sh /tmp/
 RUN echo "DEVICE=${DEVICE}"
 

@@ -1,0 +1,37 @@
+#! /bin/bash
+
+set -exo pipefail
+
+IMAGE=$1
+
+
+# This section contains a list of utilities to tests that the image is OK
+
+function assert_command_succeeds {
+  ERROR_CODE=0
+  docker run --rm "$IMAGE" "$@" || ERROR_CODE=$?
+  if test "$ERROR_CODE" -ne 0; then
+    echo "Command failed with error '$ERROR_CODE': $*"
+    exit 1
+  fi
+}
+
+function assert_command_succeeds_packages_are_not_installed {
+  PACKAGES_FOUND=$(
+      (
+        docker run --rm "$IMAGE" env LANG=C apt list -a "$@" 2> /dev/null |
+        grep -v "^$" | grep -vF 'Listing...' | grep -vF 'Done'
+      ) || :
+    )
+
+  N_PACKAGES=$(echo -n "$PACKAGES_FOUND" | wc -l)
+  if test "$N_PACKAGES" -ne 0; then
+    echo "Num of problematic packages found: $N_PACKAGES: $PACKAGES_FOUND"
+    exit 1
+  fi
+}
+
+
+# This section contains the specific tests
+assert_command_succeeds bin/test_docker_image.py
+assert_command_succeeds_packages_are_not_installed liblog4j1.2-java liblog4j2-java

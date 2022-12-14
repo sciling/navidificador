@@ -1,0 +1,132 @@
+#! /bin/bash
+
+# https://gist.github.com/mohanpedala/1e2ff5661761d3abd0385e8223e16425
+set -exo pipefail
+
+PROJECT_NAME="$(poetry version | awk '{print $1}')"
+CURRENT_LOCATION="$(pwd)"
+CURRENT_SCRIPT="$( realpath "${BASH_SOURCE[0]:-${(%):-%x}}" )"
+SCRIPT_LOCATION="$( cd "$( dirname "$CURRENT_SCRIPT" )/.." &> /dev/null && pwd )"
+
+
+usage()
+{
+    echo "usage: script.sh [[[-m --module ] [-s --script] [-n --name] [-e --env] [-v --version] [-l --location]] | [-h --help]]"
+    echo "* -a:   account to connect to codeartifact"
+    echo "* -d:   domain which will be used in codeartifact"
+    echo ""
+    echo "To use this script you must be logged in aws cli and be in AWSCodeArtifactAdminAccess role"
+    echo "If using developer build, common version must match the $PROJECT_NAME package version"
+    echo "This repository needs to be in the parent folder of $PROJECT_NAME"
+    echo "The repository you want to build needs to be in this project (same level as $PROJECT_NAME)"
+    echo "Do not call your main file \"main.py\", because if you do it will be overwritten during the Docker creation, which copies to \"main.py\""
+    echo ""
+    echo "example:      $1"
+    exit 1
+}
+
+# Load default values from .env
+test -f "$SCRIPT_LOCATION"/.env && source "$SCRIPT_LOCATION"/.env
+
+while [ "$1" != "" ]; do
+    case $1 in
+        -e | --env )            shift
+                                ENV=$1
+                                ;;
+        -c | --commit-id )      shift
+                                COMMIT_ID="$1"
+                                ;;
+        -h | --help )           usage
+                                exit
+                                ;;
+        * )                     usage
+                                exit 1
+    esac
+    shift
+done
+
+VERSION="$(toml get --toml-path "pyproject.toml" tool.poetry.version || (echo 'Could not get current version' && exit 1))"
+NAME="$(toml get --toml-path "pyproject.toml" tool.poetry.name)"
+
+if test -z "$COMMIT_ID"; then
+  COMMIT_ID="$(git rev-parse --short --verify HEAD)"
+fi
+
+cd "$SCRIPT_LOCATION"
+
+DOCKEFILE=Dockerfile
+
+BASE_IMAGE=ubuntu
+BASE_IMAGE_TAG=22.04
+DEVICE=cpu
+# Latest is only set for convenience when running in local
+# latest tag should not be uploaded to the repo
+LATEST_TAG=latest
+
+test -d "$tmp_dir" && rm -rf -- "$tmp_dir"
+tmp_dir=$(mktemp -d -t ${PROJECT_NAME}-build-image-XXXXXXXXXX)
+
+poetry run bin/generate-requirements-from-poetry.py ${DEVICE} > requirements-${DEVICE}.txt
+
+TAG="${VERSION}-${DEVICE}-${COMMIT_ID}"
+
+IMAGE_BASE="${PROJECT_NAME}/${NAME}-base:${TAG}"
+IMAGE_BASE_LATEST="${PROJECT_NAME}/${NAME}-base:${LATEST_TAG}"
+
+docker pull ${IMAGE_BASE_LATEST} || echo "WARNING: Could not pull ${IMAGE_BASE_LATEST}" || echo "WARNING: Base ${IMAGE_BASE_LATEST} does not exist yet"
+docker build \
+  --cache-from=${IMAGE_BASE_LATEST} \
+  --progress=plain \
+  --tag ${IMAGE_BASE} \
+  --tag ${IMAGE_BASE_LATEST} \
+  --build-arg BASE_IMAGE="${BASE_IMAGE}" \
+  --build-arg BASE_IMAGE_TAG="${BASE_IMAGE_TAG}" \
+  --build-arg DEVICE="${DEVICE}" \
+  --file ${DOCKEFILE}-base \
+  .
+
+IMAGE_FINAL="${PROJECT_NAME}/${NAME}:${TAG}"
+IMAGE_FINAL_LATEST="${PROJECT_NAME}/${NAME}:${LATEST_TAG}"
+
+docker pull ${IMAGE_FINAL_LATEST} || echo "WARNING: Could not pull ${IMAGE_FINAL_LATEST}"
+docker build \
+  --cache-from=${IMAGE_FINAL_LATEST} \
+  --progress=plain \
+  --tag "${IMAGE_FINAL}" \
+  --tag "${IMAGE_FINAL_LATEST}" \
+  --build-arg FROM_IMAGE="${IMAGE_BASE}" \
+  --build-arg BASE_IMAGE="${BASE_IMAGE}" \
+  --build-arg BASE_IMAGE_TAG="${BASE_IMAGE_TAG}" \
+  --build-arg DEVICE="${DEVICE}" \
+  --build-arg COMMIT_ID="${COMMIT_ID}" \
+  --build-arg VERSION="${VERSION}" \
+  --build-arg IMAGE_TAG="${TAG}" \
+  --build-arg CODEBUILD_BATCH_BUILD_IDENTIFIER="${CODEBUILD_BATCH_BUILD_IDENTIFIER}" \
+  --build-arg CODEBUILD_BUILD_ARN="${CODEBUILD_BUILD_ARN}" \
+  --build-arg CODEBUILD_BUILD_ID="${CODEBUILD_BUILD_ID}" \
+  --build-arg CODEBUILD_BUILD_IMAGE="${CODEBUILD_BUILD_IMAGE}" \
+  --build-arg CODEBUILD_BUILD_NUMBER="${CODEBUILD_BUILD_NUMBER}" \
+  --build-arg CODEBUILD_INITIATOR="${CODEBUILD_INITIATOR}" \
+  --build-arg CODEBUILD_KMS_KEY_ID="${CODEBUILD_KMS_KEY_ID}" \
+  --build-arg CODEBUILD_LOG_PATH="${CODEBUILD_LOG_PATH}" \
+  --build-arg CODEBUILD_PUBLIC_BUILD_URL="${CODEBUILD_PUBLIC_BUILD_URL}" \
+  --build-arg CODEBUILD_RESOLVED_SOURCE_VERSION="${CODEBUILD_RESOLVED_SOURCE_VERSION}" \
+  --build-arg CODEBUILD_SOURCE_REPO_URL="${CODEBUILD_SOURCE_REPO_URL}" \
+  --build-arg CODEBUILD_SOURCE_VERSION="${CODEBUILD_SOURCE_VERSION}" \
+  --build-arg CODEBUILD_START_TIME="${CODEBUILD_START_TIME}" \
+  --build-arg CODEBUILD_WEBHOOK_ACTOR_ACCOUNT_ID="${CODEBUILD_WEBHOOK_ACTOR_ACCOUNT_ID}" \
+  --build-arg CODEBUILD_WEBHOOK_BASE_REF="${CODEBUILD_WEBHOOK_BASE_REF}" \
+  --build-arg CODEBUILD_WEBHOOK_EVENT="${CODEBUILD_WEBHOOK_EVENT}" \
+  --build-arg CODEBUILD_WEBHOOK_MERGE_COMMIT="${CODEBUILD_WEBHOOK_MERGE_COMMIT}" \
+  --build-arg CODEBUILD_WEBHOOK_PREV_COMMIT="${CODEBUILD_WEBHOOK_PREV_COMMIT}" \
+  --build-arg CODEBUILD_WEBHOOK_HEAD_REF="${CODEBUILD_WEBHOOK_HEAD_REF}" \
+  --build-arg CODEBUILD_WEBHOOK_TRIGGER="${CODEBUILD_WEBHOOK_TRIGGER}" \
+  --file ${DOCKEFILE}-final \
+  .
+
+bin/test-image $IMAGE_FINAL
+
+echo <<EOF
+You can test that this image runs by executing:
+> docker run --rm $IMAGE_FINAL_LATEST bin/test_docker_image.py
+EOF

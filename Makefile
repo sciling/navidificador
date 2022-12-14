@@ -168,7 +168,7 @@ install:
 	@make pre-commit-install
 
 images:
-	bin/build-images --gpu $(GPU)
+	bin/build-images
 
 pre-commit-install: virtual-environment
 	poetry run pre-commit install
