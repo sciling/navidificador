@@ -2,26 +2,27 @@
 import os
 import re
 import io
-import json
 import base64
-from typing import Union, Optional
+from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request, File, UploadFile
+from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
+from fastapi.logger import logger
 from pydantic import BaseModel
 import requests
 import magic
 from PIL import Image
 import openai
 
-# from navidificador import logging
+from navidificador.profiler import profile
 
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 app = FastAPI()
 
 
+@profile(desc=0)
 def api(service, data, **kwargs):
     service = service.upper()
 
@@ -85,8 +86,8 @@ def get_mask(image):
 
     try:
         mask = next((base64_to_image(im['mask']) for im in masks if im['label'] == 'person'), None)
-    except Exception as ex:  # pylint: disable=broad-except
-        print(ex)
+    except Exception:  # pylint: disable=broad-except
+        logger.exception()
         mask = None
 
     if mask is None:
@@ -104,7 +105,7 @@ def get_inpaint(image, mask):
         'image': image_to_base64(image, ensure_ascii=True),
         'mask': image_to_base64(mask, ensure_ascii=True),
     }
-    output = api('INPAINT', data)
+    output = api('inpaint', data)
     return output
 
 
@@ -141,6 +142,9 @@ def process_image(image):
     image = base64_to_image(image.image)
     mask = get_mask(image)
     images = get_inpaint(image, mask)
+    for index, item in enumerate(images):
+        image = Image.open(io.BytesIO(base64.b64decode(item['image'])))
+        image.save(f'tmp/image{index}.jpg')
     return {
         "images": images,
     }
