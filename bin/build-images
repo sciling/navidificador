@@ -66,7 +66,7 @@ LATEST_TAG=latest
 test -d "$tmp_dir" && rm -rf -- "$tmp_dir"
 tmp_dir=$(mktemp -d -t ${PROJECT_NAME}-build-image-XXXXXXXXXX)
 
-poetry run bin/generate-requirements-from-poetry.py ${DEVICE} > requirements-${DEVICE}.txt
+bin/generate-requirements-from-poetry.py ${DEVICE} > requirements-${DEVICE}.txt
 
 TAG="${VERSION}-${DEVICE}-${COMMIT_ID}"
 
