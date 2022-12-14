@@ -15,7 +15,7 @@ import magic
 from PIL import Image
 import openai
 
-from navidificador.profiler import profile
+from navidificador.profiler import profile, get_profiling_data
 
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -109,10 +109,6 @@ def get_inpaint(image, mask):
     return output
 
 
-def valid_image_format(image):
-    return True
-
-
 def validation_error(message, data=None):
     return JSONResponse(
         status_code=422,
@@ -120,9 +116,36 @@ def validation_error(message, data=None):
     )
 
 
+def validate_image_format(image, desc, width=(512, 2048), height=(512, 2048), mimes=('image/jpeg', 'image/png')):
+    with Image.open(io.BytesIO(image)) as img:
+        mime = magic.from_buffer(image, mime=True)
+
+        if mime not in mimes:
+            raise validation_error(f"Invalid mimetype: {desc}")
+
+        if img.size[0] < width[0]:
+            raise validation_error(f"Width is too small {img.size[0]} < {width[0]}: {desc}")
+
+        if img.size[0] > width[1]:
+            raise validation_error(f"Width is too small {img.size[0]} < {width[1]}: {desc}")
+
+        if img.size[1] < height[0]:
+            raise validation_error(f"Width is too small {img.size[1]} < {height[0]}: {desc}")
+
+        if img.size[1] > height[1]:
+            raise validation_error(f"Width is too small {img.size[1]} < {height[1]}: {desc}")
+
+    return True
+
+
 @app.get("/")
 async def root():
     return {"message": "Soy el Navidificador!"}
+
+
+@app.get("/stats")
+async def stats():
+    return get_profiling_data()
 
 
 class ImageModel(BaseModel):
@@ -140,6 +163,8 @@ class ImageModel(BaseModel):
 
 def process_image(image):
     image = base64_to_image(image.image)
+
+    validate_image_format(image, 'input image')
     mask = get_mask(image)
     images = get_inpaint(image, mask)
     for index, item in enumerate(images):
@@ -150,12 +175,14 @@ def process_image(image):
     }
 
 
+@profile(desc='/image')
 @app.post("/image")
 async def process_image_json(image: ImageModel):
     return process_image(image)
 
 
 @app.post("/image-file")
+@profile(desc='/image-file')
 async def process_image_file(image_file: UploadFile):
     image = ImageModel(image=image_to_base64(image_file))
     return process_image(image)
@@ -184,6 +211,7 @@ class PoemModel(BaseModel):
 
 
 @app.post("/poem")
+@profile(desc='/poem')
 async def create_poem(poem: PoemModel):
     """ Produces a Christmas poem addressed to a specific person.
         Description should have some details of that person so that the poem can be personalized.
