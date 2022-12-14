@@ -1,4 +1,4 @@
-# pylint: disable=unused-import
+# pylint: disable=unused-import,no-name-in-module,too-few-public-methods
 import os
 import io
 import json
@@ -31,7 +31,7 @@ def api(service, data, mime=None, **kwargs):
     params.update(kwargs)
 
     headers = {
-        "Authorization": f"Bearer {os.getenv(service + '_HUGGINGFACE_BEARER')}",
+        "Authorization": f"Bearer {os.getenv('HUGGINGFACE_BEARER')}",
     }
 
     print(f"HEADERS: {headers}, KWARGS: {kwargs}")
@@ -41,6 +41,11 @@ def api(service, data, mime=None, **kwargs):
 
     response = requests.post(os.getenv(service + '_HUGGINGFACE_ENDPOINT'), headers=headers, data=data, **params)
     return response.json()
+
+
+def read_b64(filename):
+    with open(filename, 'rb') as file:
+        return image_to_base64(file.read())
 
 
 def image_to_base64(image):
@@ -65,7 +70,7 @@ def get_mask(image):
 
     try:
         mask = next((base64_to_image(im['mask']) for im in masks if im['label'] == 'person'), None)
-    except Exception as ex:
+    except Exception as ex:  # pylint: disable=broad-except
         print(ex)
         mask = None
 
@@ -112,6 +117,14 @@ class ImageModel(BaseModel):
     image: str
     prompt: Optional[str] = None
 
+    class Config:
+        schema_extra = {
+            "example": {
+                "image": read_b64('examples/mini.jpeg'),
+                "prompt": None,
+            }
+        }
+
 
 def process_image(image):
     image = base64_to_image(image.image)
@@ -142,7 +155,14 @@ class PoemModel(BaseModel):
         schema_extra = {
             "example": {
                 "name": "Cristóbal Colón",
-                "description": "Cristóbal Colón (Cristoforo Colombo, en italiano, o Christophorus Columbus, en latín; de orígenes discutidos, los expertos se inclinan por Génova, República de Génovan. 1​3​4​ donde pudo haber nacido el 31 de octubre de 14515​ y se sabe que murió en Valladolid el 20 de mayo de 1506) fue un navegante, cartógrafo, almirante, virrey y gobernador general de las Indias Occidentales al servicio de la Corona de Castilla. Realizó el llamado descubrimiento de América el 12 de octubre de 1492, al llegar a la isla de Guanahani, en las Bahamas.",
+                "description": """
+                    Cristóbal Colón (Cristoforo Colombo, en italiano, o Christophorus Columbus, en latín;
+                    de orígenes discutidos, los expertos se inclinan por Génova, República de Génovan donde pudo haber
+                    nacido el 31 de octubre de 1451 y se sabe que murió en Valladolid el 20 de mayo de 1506) fue un navegante,
+                    cartógrafo, almirante, virrey y gobernador general de las Indias Occidentales al servicio de la Corona de
+                    Castilla. Realizó el llamado descubrimiento de América el 12 de octubre de 1492,
+                    al llegar a la isla de Guanahani, en las Bahamas.
+                """,
                 "language": 'es',
             }
         }
