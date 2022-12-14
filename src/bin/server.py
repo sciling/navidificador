@@ -22,7 +22,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 app = FastAPI()
 
 
-def api(service, data, mime=None, **kwargs):
+def api(service, data, **kwargs):
     service = service.upper()
 
     params = {
@@ -35,12 +35,16 @@ def api(service, data, mime=None, **kwargs):
         "Authorization": f"Bearer {os.getenv('HUGGINGFACE_BEARER')}",
     }
 
-    print(f"HEADERS: {headers}, KWARGS: {kwargs}")
-
-    if mime:
+    if isinstance(data, (bytes, bytearray)):
+        if not kwargs.get('mime', None):
+            mime = magic.from_buffer(data, mime=True)
+        params['data'] = data
         headers['Content-Type'] = mime
+    else:
+        params['json'] = data
 
-    response = requests.post(os.getenv(service + '_HUGGINGFACE_ENDPOINT'), headers=headers, data=data, **params)
+    response = requests.post(os.getenv(service + '_HUGGINGFACE_ENDPOINT'), headers=headers, **params)
+
     return response.json()
 
 
@@ -58,8 +62,11 @@ def read_b64(filename):
         return image_to_base64(file.read())
 
 
-def image_to_base64(image):
-    return base64.b64encode(image)
+def image_to_base64(image, ensure_ascii=False):
+    b64 = base64.b64encode(image)
+    if ensure_ascii:
+        return b64.decode('ascii')
+    return b64
 
 
 def base64_to_image(image):
@@ -74,9 +81,7 @@ def create_full_mask(image):
 
 
 def get_mask(image):
-    mime = magic.from_buffer(image, mime=True)
-    print(f"image: {mime} {image[:100]}")
-    masks = api('mask', mime=mime, data=image)
+    masks = api('mask', image)
 
     try:
         mask = next((base64_to_image(im['mask']) for im in masks if im['label'] == 'person'), None)
@@ -90,20 +95,16 @@ def get_mask(image):
     if mask is None:
         raise HTTPException(status_code=500, detail="Could not generate a mask image")
 
-    with open('mask.png', 'wb') as file:
-        file.write(mask)
-
-    mask_mime = magic.from_buffer(mask, mime=True)
-    print(f"mask: {mask_mime} {mask[:100]}")
     return mask
 
 
 def get_inpaint(image, mask):
     data = {
-        'image': image_to_base64(image),
-        'mask': image_to_base64(mask),
+        'inputs': "inpaint",
+        'image': image_to_base64(image, ensure_ascii=True),
+        'mask': image_to_base64(mask, ensure_ascii=True),
     }
-    output = api('INPAINT', data=data)
+    output = api('INPAINT', data)
     return output
 
 
@@ -139,7 +140,7 @@ class ImageModel(BaseModel):
 def process_image(image):
     image = base64_to_image(image.image)
     mask = get_mask(image)
-    images = [image_to_base64(mask)]
+    images = get_inpaint(image, mask)
     return {
         "images": images,
     }
