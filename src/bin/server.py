@@ -1,5 +1,6 @@
 # pylint: disable=unused-import,no-name-in-module,too-few-public-methods
 import os
+import re
 import io
 import json
 import base64
@@ -43,7 +44,16 @@ def api(service, data, mime=None, **kwargs):
     return response.json()
 
 
+def clean_spaces(text):
+    text = re.sub(r"^\s*", "", text)
+    text = re.sub(r"\s*$", "", text)
+    text = re.sub(r"\s+", " ", text)
+    return text
+
+
 def read_b64(filename):
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    filename = os.path.join(base_dir, '..', filename)
     with open(filename, 'rb') as file:
         return image_to_base64(file.read())
 
@@ -120,7 +130,7 @@ class ImageModel(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "image": read_b64('examples/mini.jpeg'),
+                "image": read_b64('resources/mini.jpeg'),
                 "prompt": None,
             }
         }
@@ -155,14 +165,14 @@ class PoemModel(BaseModel):
         schema_extra = {
             "example": {
                 "name": "Cristóbal Colón",
-                "description": """
+                "description": clean_spaces("""
                     Cristóbal Colón (Cristoforo Colombo, en italiano, o Christophorus Columbus, en latín;
                     de orígenes discutidos, los expertos se inclinan por Génova, República de Génovan donde pudo haber
                     nacido el 31 de octubre de 1451 y se sabe que murió en Valladolid el 20 de mayo de 1506) fue un navegante,
                     cartógrafo, almirante, virrey y gobernador general de las Indias Occidentales al servicio de la Corona de
                     Castilla. Realizó el llamado descubrimiento de América el 12 de octubre de 1492,
                     al llegar a la isla de Guanahani, en las Bahamas.
-                """,
+                """),
                 "language": 'es',
             }
         }
