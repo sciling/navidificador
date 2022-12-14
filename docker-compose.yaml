@@ -5,6 +5,7 @@ services:
     image: navidificador/navidificador:latest
     container_name: navidificador
     environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
       MASK_HUGGINGFACE_ENDPOINT: ${MASK_HUGGINGFACE_ENDPOINT}
       MASK_HUGGINGFACE_BEARER: ${MASK_HUGGINGFACE_BEARER}
     ports:
