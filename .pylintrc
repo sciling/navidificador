@@ -1,0 +1,12 @@
+[MAIN]
+
+# https://stackoverflow.com/a/3065082
+init-hook='import sys; import subprocess; sys.path.append("src"); venv = subprocess.check_output(["poetry", "env", "info", "-p"]).decode("utf-8").strip("\n"); sys.path.append(f"{venv}/lib/python3.9/site-packages")'
+
+# Maximum number of characters on a single line.
+max-line-length=160
+
+disable=missing-module-docstring,
+        missing-function-docstring,
+        missing-class-docstring,
+        logging-fstring-interpolation

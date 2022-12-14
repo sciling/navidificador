@@ -1,0 +1,30 @@
+{
+    "[json]": {
+        "editor.insertSpaces": true,
+        "editor.tabSize": 2
+    },
+    "editor.formatOnSave": true,
+    "editor.insertSpaces": true,
+    "editor.tabSize": 2,
+    "isort.check": true,
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/src"
+    ],
+    "python.formatting.provider": "black",
+    "python.languageServer": "Pylance",
+    "python.linting.enabled": true,
+    "python.linting.banditEnabled": true,
+    "python.linting.flake8Enabled": true,
+    "python.linting.mypyEnabled": true,
+    "python.linting.prospectorEnabled": false,
+    "python.linting.pylintEnabled": true,
+    "python.linting.pylintPath": "${workspaceFolder}/.venv/bin/pylint",
+    "python.linting.pylintArgs": [
+        "--rcfile",
+        "${workspaceFolder}/.pylintrc"
+    ],
+    "python.terminal.activateEnvInCurrentTerminal": true,
+    "python.terminal.activateEnvironment": true,
+    "python.testing.pytestEnabled": true,
+    "python.analysis.typeCheckingMode": "off"
+}

@@ -1,0 +1,54 @@
+ARG FROM_IMAGE
+ARG BASE_IMAGE
+ARG BASE_IMAGE_TAG
+
+# dockerfile_lint - ignore
+FROM ${FROM_IMAGE}:${FROM_IMAGE_TAG} as base
+
+###################################
+
+FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG} as final
+
+RUN apt-get update -y \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      python-is-python3 python3-distutils wget gnupg2 ca-certificates \
+    && apt-get autoremove --purge -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /var/src/*
+
+RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' | tee /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update -y \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      google-chrome-stable libxss1 \
+    && apt-get autoremove --purge -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /var/src/*
+
+ENV PYTHONFAULTHANDLER=1 \
+    PYTHONHASHSEED=random \
+    PYTHONUNBUFFERED=1 \
+    TORCH_HOME=/venv/torch
+
+WORKDIR /code
+
+COPY --from=base /venv /venv
+COPY --from=base /models /models
+
+COPY ./src /code
+
+COPY docker-entrypoint.sh /
+
+ARG IMAGE_TAG
+ARG DEVICE
+ARG COMMIT_ID
+ARG VERSION
+
+ENV PYTHONPATH=/code \
+    PATH="/code/bin:${PATH}" \
+    IMAGE_TAG=${IMAGE_TAG} \
+    DEVICE=${DEVICE} \
+    COMMIT_ID=${COMMIT_ID} \
+    VERSION=${VERSION}
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
