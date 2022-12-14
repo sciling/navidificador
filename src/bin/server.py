@@ -3,13 +3,15 @@ import os
 import re
 import io
 import base64
-from typing import Optional
+from typing import Optional, Dict
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, Request, Response, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from fastapi.logger import logger
 from pydantic import BaseModel
+from pydantic.dataclasses import dataclass
 import requests
 import magic
 from PIL import Image
@@ -109,31 +111,73 @@ def get_inpaint(image, mask):
     return output
 
 
-def validation_error(message, data=None):
+async def catch_exceptions_middleware(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception:
+        # you probably want some kind of logging here
+        return Response("Internal server error", status_code=500)
+
+app.middleware('http')(catch_exceptions_middleware)
+
+
+# From https://github.com/pydantic/pydantic/issues/1875#issuecomment-964395974
+@dataclass
+class UserError(Exception):
+    status_code: int = 400
+    target: str
+    message: str
+    data: Optional[Dict] = None
+
+
+@dataclass
+class AppError(Exception):
+    status_code: int = 500
+    target: str
+    message: str
+    data: Optional[Dict] = None
+
+
+@app.exception_handler(UserError)
+async def app_exception_handler(request: Request, exc: UserError):
     return JSONResponse(
-        status_code=422,
-        content={"message": message, "data": data},
+        status_code=exc.status_code,
+        content=jsonable_encoder(exc),
     )
 
 
-def validate_image_format(image, desc, width=(512, 2048), height=(512, 2048), mimes=('image/jpeg', 'image/png')):
-    with Image.open(io.BytesIO(image)) as img:
-        mime = magic.from_buffer(image, mime=True)
+@app.exception_handler(AppError)
+async def app_exception_handler(request: Request, exc: AppError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=jsonable_encoder(exc),
+    )
 
-        if mime not in mimes:
-            raise validation_error(f"Invalid mimetype: {desc}")
+
+def validation_error(target, message, data=None):
+    raise UserError(status_code=400, target=target, message=message)
+
+
+@profile()
+def validate_image_format(image, target, width=(512, 2048), height=(512, 2048), mimes=('image/jpeg', 'image/png')):
+    mime = magic.from_buffer(image, mime=True)
+
+    if mime not in mimes:
+        validation_error(target, f"Invalid mimetype. '{mime}' not in {mimes}.")
+
+    with Image.open(io.BytesIO(image)) as img:
 
         if img.size[0] < width[0]:
-            raise validation_error(f"Width is too small {img.size[0]} < {width[0]}: {desc}")
+            validation_error(target, f"Width is too small {img.size[0]} < {width[0]}.")
 
         if img.size[0] > width[1]:
-            raise validation_error(f"Width is too small {img.size[0]} < {width[1]}: {desc}")
+            validation_error(target, f"Width is too small {img.size[0]} < {width[1]}.")
 
         if img.size[1] < height[0]:
-            raise validation_error(f"Width is too small {img.size[1]} < {height[0]}: {desc}")
+            validation_error(target, f"Width is too small {img.size[1]} < {height[0]}.")
 
         if img.size[1] > height[1]:
-            raise validation_error(f"Width is too small {img.size[1]} < {height[1]}: {desc}")
+            validation_error(target, f"Width is too small {img.size[1]} < {height[1]}.")
 
     return True
 
@@ -166,18 +210,29 @@ def process_image(image):
 
     validate_image_format(image, 'input image')
     mask = get_mask(image)
+
+    validate_image_format(image, 'mask image')
     images = get_inpaint(image, mask)
+
     for index, item in enumerate(images):
+        validate_image_format(base64_to_image(item['image']), f"result image[{index}]")
+
         image = Image.open(io.BytesIO(base64.b64decode(item['image'])))
         image.save(f'tmp/image{index}.jpg')
+
     return {
         "images": images,
     }
 
 
+RESPONSES = {
+    '400': {'model': UserError}
+}
+
+
 @profile(desc='/image')
 @app.post("/image")
-async def process_image_json(image: ImageModel):
+async def process_image_json(image: ImageModel, responses=RESPONSES):
     return process_image(image)
 
 
