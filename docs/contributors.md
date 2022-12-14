@@ -1,11 +1,11 @@
 # Code
-You can find the code [here](https://gitlab.sciling.com/medp/medp2).
+You can find the code [here](https://gitlab.sciling.com/navidificador/navidificador).
 
 # poetry
 Poetry is the python package manager that we use. You can find a short tutorial [here](https://python-poetry.org/docs/basic-usage/).
 
 # pre-commit hooks
-[Pre-commit](https://pre-commit.com/) is a tool to run some checks on the code before the commit is pushed. For instance, it can check for leaked passwords and IPs. After you have cloned the [gitlab repo](https://gitlab.sciling.com/medp/medp2) you can run:
+[Pre-commit](https://pre-commit.com/) is a tool to run some checks on the code before the commit is pushed. For instance, it can check for leaked passwords and IPs. After you have cloned the [gitlab repo](https://gitlab.sciling.com/navidificador/navidificador) you can run:
 ```bash
 make pre-commit-install
 ```
@@ -29,8 +29,8 @@ so use it sparingly.
 There are three ways of disabling linting errors:
 
 ## Globally
-* pylint: https://gitlab.sciling.com/medp/medp2/-/blob/main/.pylintrc
-* flake8: https://gitlab.sciling.com/medp/medp2/-/blob/main/.flake8
+* pylint: https://gitlab.sciling.com/navidificador/navidificador/-/blob/main/.pylintrc
+* flake8: https://gitlab.sciling.com/navidificador/navidificador/-/blob/main/.flake8
 * sonarqube: https://sonarqube.sciling.com/profiles/show?language=py&name=Sonar+way
 
 ## Per block of code

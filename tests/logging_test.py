@@ -6,7 +6,7 @@ import unittest
 from importlib import reload
 from unittest import mock
 
-import medp
+import navidificador
 
 
 class TestExample(unittest.TestCase):
@@ -18,10 +18,10 @@ class TestExample(unittest.TestCase):
     def test_terminal(self):
         logging.shutdown()
         reload(logging)
-        self.assertTrue(medp.logging.configure_logging())
+        self.assertTrue(navidificador.logging.configure_logging())
 
         with self.assertLogs("foo") as context:
-            logger = medp.logging.getLogger("foo")
+            logger = navidificador.logging.getLogger("foo")
             logger.info("test terminal")
             logger.alert("alert terminal")
 
@@ -45,10 +45,10 @@ class TestExample(unittest.TestCase):
     def test_kubernetes(self):
         logging.shutdown()
         reload(logging)
-        self.assertTrue(medp.logging.configure_logging())
+        self.assertTrue(navidificador.logging.configure_logging())
 
         with self.assertLogs("foo") as context:
-            logger = medp.logging.getLogger("foo")
+            logger = navidificador.logging.getLogger("foo")
             logger.info("test kubernetes")
             logger.alert("alert kubernetes")
 
@@ -65,11 +65,11 @@ class TestExample(unittest.TestCase):
     def test_disable(self):
         logging.shutdown()
         reload(logging)
-        self.assertTrue(medp.logging.configure_logging())
+        self.assertTrue(navidificador.logging.configure_logging())
 
         try:
             with self.assertLogs("module_name") as context:
-                logger = medp.logging.getLogger("module_name")
+                logger = navidificador.logging.getLogger("module_name")
                 logger.info("test")
 
                 self.assertEqual(context.output, [])
@@ -82,14 +82,14 @@ class TestExample(unittest.TestCase):
     def test_sentry(self):
         logging.shutdown()
         reload(logging)
-        self.assertFalse(medp.logging.configure_logging())
+        self.assertFalse(navidificador.logging.configure_logging())
 
     def test_handle_exception(self):
-        with self.assertLogs("medp.logging") as context:
+        with self.assertLogs("navidificador.logging") as context:
             try:
                 raise ValueError
             except ValueError:
-                medp.logging.handle_exception(*sys.exc_info())
+                navidificador.logging.handle_exception(*sys.exc_info())
 
             self.assertRegex(context.output[0].replace("\n", " "), "CRITICAL:.*ValueError")
 

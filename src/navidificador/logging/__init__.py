@@ -157,7 +157,7 @@ def configure_logging():
         config.fileConfig(os.path.join(dirname, "./logging_config.ini"))  # nosec # NOSONAR python:S4792
 
     logger = logging.getLogger(__name__)
-    logger.info("Configured logging for medp common lib ...")
+    logger.info("Configured logging for navidificador common lib ...")
 
     sys.excepthook = handle_exception
 

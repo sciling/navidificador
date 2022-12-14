@@ -1,18 +1,19 @@
 
 [tool.poetry]
-name = "medp2"
+name = "navidificador"
 version = "0.0.1"
 description = ""
 authors = [
   "Vicent Alabau <valabau@sciling.com>"
 ]
 packages = [
-    { include = "medp", from = "src" },
+    { include = "navidificador", from = "src" },
 ]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.10"
 sentry-sdk = "^1.10.1"
+fastapi = "^0.88.0"
 
 [tool.poetry.dev-dependencies]
 autopep8 = "==1.5.7"
