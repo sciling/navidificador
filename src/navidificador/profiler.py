@@ -21,18 +21,18 @@ def profile(desc=None):
                 else:
                     name = name + ':' + desc
 
-            logger.info(f"Starting profiling of {name}")
+            logger.debug(f"Starting profiling of {name}")
 
             start_time = time.time()
             try:
                 ret = function(*args, **kwargs)
             except Exception as err:
-                logger.info(f"Ending profiling of {name} with error. Reason: {err}")
+                logger.debug(f"Ending profiling of {name} with error. Reason: {err}")
                 raise err
 
             elapsed_time = time.time() - start_time
 
-            logger.info(f"Ending profiling of {name} ({elapsed_time}s)")
+            logger.debug(f"Ending profiling of {name} ({elapsed_time}s)")
 
             if name not in PROF_DATA:
                 PROF_DATA[name] = [0, []]
