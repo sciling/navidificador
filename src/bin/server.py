@@ -233,14 +233,11 @@ RESPONSES = {
 }
 
 
-@profile(desc='/image')
 @app.post("/image", response_model=ImageResponseModel, responses=RESPONSES)
 async def process_image_json(image: ImageModel):
     return process_image(image)
 
 
-@app.post("/image-file")
-@profile(desc='/image-file')
 async def process_image_file(image_file: UploadFile):
     image = ImageModel(image=image_to_base64(image_file))
     return process_image(image)
@@ -269,7 +266,6 @@ class PoemModel(BaseModel):
 
 
 @app.post("/poem")
-@profile(desc='/poem')
 async def create_poem(poem: PoemModel):
     """ Produces a Christmas poem addressed to a specific person.
         Description should have some details of that person so that the poem can be personalized.
