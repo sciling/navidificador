@@ -48,7 +48,9 @@ def api(service, data, **kwargs):
     else:
         params['json'] = data
 
+    logger.debug(f"before request to {os.getenv(service + '_HUGGINGFACE_ENDPOINT')} {headers} {params}")
     response = requests.post(os.getenv(service + '_HUGGINGFACE_ENDPOINT'), headers=headers, **params)
+    logger.debug('after request before json')
 
     return response.json()
 
