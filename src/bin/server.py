@@ -239,7 +239,18 @@ class PoemModel(BaseModel):
         }
 
 
-@app.post("/poem")
+class PoemResponseModel(BaseModel):
+    images: List
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "poem": "the text of the poem",
+            }
+        }
+
+
+@app.post("/poem", response_model=PoemResponseModel, responses=responses)
 async def create_poem(poem: PoemModel):
     """Produces a Christmas poem addressed to a specific person.
     Description should have some details of that person so that the poem can be personalized.
