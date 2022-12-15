@@ -12,7 +12,7 @@ FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG} as final
 RUN apt-get update -y \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       python-is-python3 python3-distutils wget gnupg2 ca-certificates \
-      libmagic1 \
+      libmagic1 curl \
     && apt-get autoremove --purge -y \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /var/src/*
