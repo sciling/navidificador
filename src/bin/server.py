@@ -123,28 +123,28 @@ async def catch_exceptions_middleware(request: Request, call_next):
 
 
 # From https://github.com/pydantic/pydantic/issues/1875#issuecomment-964395974
-class UserError(BaseModel):
+class UserErrorDetail(BaseModel):
     target: str
-    message: str
+    msg: str
     status_code: int = 400
     data: Optional[Dict] = None
 
 
-class UserException(Exception):
-    def __init__(self, error: UserError):
-        self.error = error
+@dataclass
+class UserError(Exception):
+    detail: List[UserErrorDetail]
 
 
-@app.exception_handler(UserException)
-async def app_exception_handler(request: Request, exc: UserException):
+@app.exception_handler(UserError)
+async def app_exception_handler(request: Request, exc: UserError):
     return JSONResponse(
-        status_code=exc.error.status_code,
-        content=jsonable_encoder(exc.error),
+        status_code=exc.detail[0].status_code,
+        content=jsonable_encoder(exc),
     )
 
 
 def validation_error(target, message, data=None):
-    raise UserException(error=UserError(status_code=400, target=target, message=message))
+    raise UserError([UserErrorDetail(status_code=400, target=target, msg=message)])
 
 
 @profile()
