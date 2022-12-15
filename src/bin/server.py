@@ -1,11 +1,9 @@
-# pylint: disable=unused-import,no-name-in-module,too-few-public-methods,wrong-import-order
 import base64
 import io
 import os
 import re
 import sys
 
-from typing import Dict
 from typing import List
 from typing import Optional
 
@@ -14,27 +12,22 @@ import openai
 import requests
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
 from fastapi import HTTPException
-from fastapi import Request
 from fastapi import UploadFile
-from fastapi.encoders import jsonable_encoder
 from fastapi.logger import logger
-from fastapi.responses import JSONResponse
 from PIL import Image
-from pydantic import BaseModel
-from pydantic.dataclasses import dataclass
+from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
-from navidificador import logging  # noqa: F401
-from navidificador.profiler import (
-    get_profiling_data,  # pylint: disable=ungrouped-imports
-)
+from navidificador import logging  # pylint: disable=unused-import # noqa: F401
+from navidificador.fastapi import UserException
+from navidificador.fastapi import app
+from navidificador.fastapi import responses
+from navidificador.profiler import get_profiling_data
 from navidificador.profiler import profile
 
 
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
-app = FastAPI()
 
 logger.debug("Python %s", sys.version.replace("\n", " "))
 
@@ -128,29 +121,8 @@ def get_inpaint(image, mask):
     return output
 
 
-# From https://github.com/pydantic/pydantic/issues/1875#issuecomment-964395974
-class UserErrorDetail(BaseModel):
-    target: str
-    msg: str
-    status_code: int = 400
-    data: Optional[Dict] = None
-
-
-@dataclass
-class UserError(Exception):
-    detail: List[UserErrorDetail]
-
-
-@app.exception_handler(UserError)
-async def app_exception_handler(request: Request, exc: UserError):  # pylint: disable=unused-argument
-    return JSONResponse(
-        status_code=exc.detail[0].status_code,
-        content=jsonable_encoder(exc),
-    )
-
-
 def validation_error(target, message, data=None):
-    raise UserError([UserErrorDetail(status_code=400, target=target, msg=message)])
+    raise UserException(status_code=400, target=target, msg=message)
 
 
 @profile()
@@ -232,15 +204,12 @@ def process_image(image):
     }
 
 
-RESPONSES = {"400": {"model": UserError}}
-
-
-@app.post("/image", response_model=ImageResponseModel, responses=RESPONSES)
+@app.post("/image", response_model=ImageResponseModel, responses=responses)
 async def process_image_json(image: ImageModel):
     return process_image(image)
 
 
-@app.post("/image-file", response_model=ImageResponseModel, responses=RESPONSES)
+@app.post("/image-file", response_model=ImageResponseModel, responses=responses)
 async def process_image_file(image_file: UploadFile):
     image = ImageModel(image=image_to_base64(image_file))
     return process_image(image)
@@ -299,72 +268,6 @@ async def create_poem(poem: PoemModel):
     return {
         "poem": text,
     }
-
-
-@app.get("/exception")
-async def generate_exception(request: Request, classname: str = None, arg: str = None):
-    try:
-        cls = getattr(sys.modules[__name__], classname)
-    except:  # pylint: disable=bare-except # noqa: E722
-        cls = Exception
-
-    params = dict(request.query_params)
-
-    for key in ("classname", "arg"):
-        if key in params:
-            del params[key]
-
-    for key in params:
-        if re.match(r"^\d+$", params[key]):
-            params[key] = int(params[key])
-
-    if arg is None:
-        raise cls(**params)
-
-    raise cls(arg, **params)
-
-
-def exception_as_json_response(exc):
-    data = {
-        "type": exc.__class__.__name__,
-    }
-
-    if len(exc.args):
-        data["args"] = exc.args
-
-    data.update(exc.__dict__)
-
-    if "detail" in data:
-        data["msg"] = data["detail"]
-        del data["detail"]
-
-    for key, value in list(data.items()):
-        if value is None:
-            del data[key]
-
-    return {"detail": data}
-
-
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):  # pylint: disable=unused-argument
-    return JSONResponse(
-        status_code=exc.status_code,
-        content=exception_as_json_response(exc),
-    )
-
-
-async def catch_exceptions_middleware(request: Request, call_next):
-    try:
-        return await call_next(request)
-    except Exception as exc:  # pylint: disable=broad-except
-        logger.exception("Uncaught exception")
-        return JSONResponse(
-            status_code=exc.status_code if hasattr(exc, "status_code") else 500,
-            content=exception_as_json_response(exc),
-        )
-
-
-app.middleware("http")(catch_exceptions_middleware)
 
 
 def start():
