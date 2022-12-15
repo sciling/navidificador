@@ -40,6 +40,7 @@ def api(service, data, **kwargs):
         "Authorization": f"Bearer {os.getenv('HUGGINGFACE_BEARER')}",
     }
 
+    logger.debug(f"Data is of type '{type(data)}'")
     if isinstance(data, (bytes, bytearray)):
         if not kwargs.get('mime', None):
             mime = magic.from_buffer(data, mime=True)
