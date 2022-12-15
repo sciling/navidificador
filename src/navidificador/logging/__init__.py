@@ -7,8 +7,8 @@ import traceback
 
 from logging import config
 
-import sentry_sdk
 import loguru
+import sentry_sdk
 
 
 getLogger = logging.getLogger  # noqa: N816
@@ -161,7 +161,7 @@ def configure_logging():
 
     # remove every other logger's handlers
     # and propagate to root logger
-    for name in logging.root.manager.loggerDict.keys():
+    for name in logging.root.manager.loggerDict.keys():  # pylint: disable=no-member
         logging.getLogger(name).handlers = []
         logging.getLogger(name).propagate = True
 

@@ -71,6 +71,7 @@ bin/generate-requirements-from-poetry.py ${DEVICE} > requirements-${DEVICE}.txt
 TAG="${VERSION}-${DEVICE}-${COMMIT_ID}"
 
 IMAGE_BASE="${PROJECT_NAME}/${NAME}-base:${TAG}"
+IMAGE_BASE_NAME="${PROJECT_NAME}/${NAME}-base"
 IMAGE_BASE_LATEST="${PROJECT_NAME}/${NAME}-base:${LATEST_TAG}"
 
 docker pull ${IMAGE_BASE_LATEST} || echo "WARNING: Could not pull ${IMAGE_BASE_LATEST}" || echo "WARNING: Base ${IMAGE_BASE_LATEST} does not exist yet"
@@ -94,13 +95,13 @@ docker build \
   --progress=plain \
   --tag "${IMAGE_FINAL}" \
   --tag "${IMAGE_FINAL_LATEST}" \
-  --build-arg FROM_IMAGE="${IMAGE_BASE}" \
+  --build-arg FROM_IMAGE="${IMAGE_BASE_NAME}" \
+  --build-arg IMAGE_TAG="${TAG}" \
   --build-arg BASE_IMAGE="${BASE_IMAGE}" \
   --build-arg BASE_IMAGE_TAG="${BASE_IMAGE_TAG}" \
   --build-arg DEVICE="${DEVICE}" \
   --build-arg COMMIT_ID="${COMMIT_ID}" \
   --build-arg VERSION="${VERSION}" \
-  --build-arg IMAGE_TAG="${TAG}" \
   --build-arg CODEBUILD_BATCH_BUILD_IDENTIFIER="${CODEBUILD_BATCH_BUILD_IDENTIFIER}" \
   --build-arg CODEBUILD_BUILD_ARN="${CODEBUILD_BUILD_ARN}" \
   --build-arg CODEBUILD_BUILD_ID="${CODEBUILD_BUILD_ID}" \

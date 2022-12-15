@@ -1,9 +1,10 @@
 ARG FROM_IMAGE
+ARG IMAGE_TAG
 ARG BASE_IMAGE
 ARG BASE_IMAGE_TAG
 
 # dockerfile_lint - ignore
-FROM ${FROM_IMAGE} as base
+FROM ${FROM_IMAGE}:${IMAGE_TAG} as base
 
 ###################################
 

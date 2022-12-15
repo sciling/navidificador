@@ -1,16 +1,12 @@
 #! /usr/bin/env python
+# pylint: disable=invalid-name
 
 import logging
-import os
 import sys
-
-from functools import partial
 
 import toml
 
-from packaging.markers import InvalidMarker
 from packaging.markers import Marker
-from packaging.markers import UndefinedEnvironmentName
 
 
 package_repos = {
@@ -23,7 +19,7 @@ package_repos = {
 }
 
 
-def should_ignore(name, dep):
+def should_ignore(name, dep):  # pylint: disable=unused-argument
     if isinstance(dep, dict):
         text = dep.get("markers", "")
         if text:
@@ -43,10 +39,14 @@ def _poetry_lock_to_requirements_txt(device, only_exlicit_packages=False):
             pyproject = toml.load(fd)
 
         explicit_packages = pyproject["tool"]["poetry"]["dependencies"].keys()
-        install_package = lambda package: package["name"] in explicit_packages
+
+        def install_package(package):
+            return package["name"] in explicit_packages
 
     else:
-        install_package = lambda package: package["category"] == "main"
+
+        def install_package(package):
+            return package["category"] == "main"
 
     with open("poetry.lock", encoding="utf-8") as fd:
         poetry_lock = toml.load(fd)
