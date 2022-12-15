@@ -334,7 +334,6 @@ def exception_as_json_response(exc):
 
     data.update(exc.__dict__)
 
-    logger.debug(f"exception: {data}")
     if "detail" in data:
         data["msg"] = data["detail"]
         del data["detail"]
