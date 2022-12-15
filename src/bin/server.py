@@ -86,7 +86,9 @@ def create_full_mask(image):
 
 
 def get_mask(image):
+    logger.debug('Invoking the masker...')
     masks = api('mask', image)
+    logger.debug(f"The masker found {len(masks)} masks")
 
     try:
         mask = next((base64_to_image(im['mask']) for im in masks if im['label'] == 'person'), None)
