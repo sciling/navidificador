@@ -1,6 +1,7 @@
 # pylint: disable=unused-import,no-name-in-module,too-few-public-methods
 from navidificador import logging
 
+import sys
 import os
 import re
 import io
@@ -24,6 +25,8 @@ from navidificador.profiler import profile, get_profiling_data
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 app = FastAPI()
+
+logger.debug(f"Python {sys.version} {sys.version_info}")
 
 
 @profile(desc=0)
