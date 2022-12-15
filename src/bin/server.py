@@ -3,7 +3,7 @@ import os
 import re
 import io
 import base64
-from typing import Optional, Dict
+from typing import Optional, List, Dict
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response, HTTPException, UploadFile
@@ -58,11 +58,11 @@ def clean_spaces(text):
     return text
 
 
-def read_b64(filename):
+def read_b64(filename, ensure_ascii=False):
     base_dir = os.path.dirname(os.path.realpath(__file__))
     filename = os.path.join(base_dir, '..', filename)
     with open(filename, 'rb') as file:
-        return image_to_base64(file.read())
+        return image_to_base64(file.read(), ensure_ascii=ensure_ascii)
 
 
 def image_to_base64(image, ensure_ascii=False):
@@ -116,46 +116,35 @@ async def catch_exceptions_middleware(request: Request, call_next):
         return await call_next(request)
     except Exception:
         # you probably want some kind of logging here
+        logger.exception('Unhandled exception')
         return Response("Internal server error", status_code=500)
 
-app.middleware('http')(catch_exceptions_middleware)
+# app.middleware('http')(catch_exceptions_middleware)
 
 
 # From https://github.com/pydantic/pydantic/issues/1875#issuecomment-964395974
-@dataclass
-class UserError(Exception):
+class UserError(BaseModel):
+    target: str
+    message: str
     status_code: int = 400
-    target: str
-    message: str
     data: Optional[Dict] = None
 
 
-@dataclass
-class AppError(Exception):
-    status_code: int = 500
-    target: str
-    message: str
-    data: Optional[Dict] = None
+class UserException(Exception):
+    def __init__(self, error: UserError):
+        self.error = error
 
 
-@app.exception_handler(UserError)
-async def app_exception_handler(request: Request, exc: UserError):
+@app.exception_handler(UserException)
+async def app_exception_handler(request: Request, exc: UserException):
     return JSONResponse(
-        status_code=exc.status_code,
-        content=jsonable_encoder(exc),
-    )
-
-
-@app.exception_handler(AppError)
-async def app_exception_handler(request: Request, exc: AppError):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content=jsonable_encoder(exc),
+        status_code=exc.error.status_code,
+        content=jsonable_encoder(exc.error),
     )
 
 
 def validation_error(target, message, data=None):
-    raise UserError(status_code=400, target=target, message=message)
+    raise UserException(error=UserError(status_code=400, target=target, message=message))
 
 
 @profile()
@@ -205,6 +194,17 @@ class ImageModel(BaseModel):
         }
 
 
+class ImageResponseModel(BaseModel):
+    images: List
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "images": [read_b64('resources/mini.jpeg', ensure_ascii=True)[:20] + '...'],
+            }
+        }
+
+
 def process_image(image):
     image = base64_to_image(image.image)
 
@@ -231,8 +231,8 @@ RESPONSES = {
 
 
 @profile(desc='/image')
-@app.post("/image")
-async def process_image_json(image: ImageModel, responses=RESPONSES):
+@app.post("/image", response_model=ImageResponseModel, responses=RESPONSES)
+async def process_image_json(image: ImageModel):
     return process_image(image)
 
 

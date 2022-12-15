@@ -137,7 +137,6 @@ def configure_logging():
             extra["alarm"] = True
             return super().warning(*args, extra=extra, **kwargs)
 
-    dirname = os.path.dirname(os.path.realpath(__file__))
     # This should not pose a security issue since
     # this logger only adds a fixed-value variable
     logging.setLoggerClass(AlarmLogger)  # NOSONAR
@@ -151,6 +150,7 @@ def configure_logging():
                 logging.getLogger(package).setLevel(level)
 
     # Configure the logging library in a general way.
+    dirname = os.path.dirname(os.path.realpath(__file__))
     if os.getenv("KUBERNETES_PORT", None):
         config.fileConfig(os.path.join(dirname, "./kubernetes_logging_config.ini"))  # nosec # NOSONAR python:S4792
     else:
