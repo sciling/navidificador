@@ -40,7 +40,7 @@ class UserError(BaseModel):
         schema_extra = {
             "example": {
                 "status_code": 400,
-                "msg": "Invalid ize {img.size}",
+                "msg": "Invalid size {img.size}",
                 "target": "input element that provoked the error",
                 "data": None,
             }
@@ -50,22 +50,23 @@ class UserError(BaseModel):
 # From https://github.com/pydantic/pydantic/issues/1875#issuecomment-964395974
 class AppError(BaseModel):
     msg: str
-    status_code: int = 400
+    status_code: int = 500
     trace: Optional[str] = None
     data: Optional[Dict] = None
 
     class Config:
         schema_extra = {
             "example": {
-                "status_code": 400,
-                "msg": "Invalid ize {img.size}",
-                "target": "input element that provoked the error",
-                "data": None,
+                "status_code": 500,
+                "msg": "Generated mask too small",
             }
         }
 
 
-def create_exception(model_cls: BaseModel, name: str, get_status_code: lambda exc: 500, get_content=jsonable_encoder):
+responses = {}
+
+
+def create_exception(model_cls: BaseModel, name: str, get_status_code: lambda exc: 500, get_content=jsonable_encoder, default_status_code=None):
     class ModelException(Exception):
         detail: model_cls
 
@@ -82,18 +83,19 @@ def create_exception(model_cls: BaseModel, name: str, get_status_code: lambda ex
             content=get_content(exc),
         )
 
+    logger.debug(f"MODEL: {model_cls} {hasattr(model_cls, 'status_code')}")
+    if default_status_code is None and "status_code" in model_cls.__fields__:
+        default_status_code = model_cls.__fields__["status_code"].default
+
+    if default_status_code:
+        responses[str(default_status_code)] = {"model": model_cls}
+
     return ModelException
 
 
 UserException = create_exception(UserError, "UserException", get_status_code=lambda exc: exc.detail.status_code)
-logger.debug(f"UserException: {UserException}")
-AppException = create_exception(AppError, "AppException", get_status_code=lambda exc: exc.detail.status_code)
-logger.debug(f"AppException: {AppException}")
-logger.debug(f"UserException: {UserException}")
 
-responses = {
-    "400": {"model": UserError},
-}
+AppException = create_exception(AppError, "AppException", get_status_code=lambda exc: exc.detail.status_code)
 
 
 @app.get("/exception")
