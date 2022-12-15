@@ -219,8 +219,9 @@ def process_image(image):
     for index, item in enumerate(images):
         validate_image_format(base64_to_image(item['image']), f"result image[{index}]")
 
-        image = Image.open(io.BytesIO(base64.b64decode(item['image'])))
-        image.save(f'tmp/image{index}.jpg')
+        if os.path.isdir('tmp'):
+            image = Image.open(io.BytesIO(base64.b64decode(item['image'])))
+            image.save(f'tmp/image{index}.jpg')
 
     return {
         "images": images,
