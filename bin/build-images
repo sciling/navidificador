@@ -57,7 +57,7 @@ cd "$SCRIPT_LOCATION"
 DOCKEFILE=Dockerfile
 
 BASE_IMAGE=ubuntu
-BASE_IMAGE_TAG=22.04
+BASE_IMAGE_TAG=22.04@sha256:27cb6e6ccef575a4698b66f5de06c7ecd61589132d5a91d098f7f3f9285415a9
 DEVICE=cpu
 # Latest is only set for convenience when running in local
 # latest tag should not be uploaded to the repo
