@@ -17,7 +17,6 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi import HTTPException
 from fastapi import Request
-from fastapi import Response
 from fastapi import UploadFile
 from fastapi.encoders import jsonable_encoder
 from fastapi.logger import logger
@@ -127,18 +126,6 @@ def get_inpaint(image, mask):
     }
     output = api("inpaint", data)
     return output
-
-
-async def catch_exceptions_middleware(request: Request, call_next):
-    try:
-        return await call_next(request)
-    except Exception:  # pylint: disable=broad-except
-        # you probably want some kind of logging here
-        logger.exception("Unhandled exception")
-        return Response("Internal server error", status_code=500)
-
-
-# app.middleware('http')(catch_exceptions_middleware)
 
 
 # From https://github.com/pydantic/pydantic/issues/1875#issuecomment-964395974
@@ -312,6 +299,73 @@ async def create_poem(poem: PoemModel):
     return {
         "poem": text,
     }
+
+
+@app.get("/exception")
+async def generate_exception(request: Request, classname: str = None, arg: str = None):
+    try:
+        cls = getattr(sys.modules[__name__], classname)
+    except:  # pylint: disable=bare-except # noqa: E722
+        cls = Exception
+
+    params = dict(request.query_params)
+
+    for key in ("classname", "arg"):
+        if key in params:
+            del params[key]
+
+    for key in params:
+        if re.match(r"^\d+$", params[key]):
+            params[key] = int(params[key])
+
+    if arg is None:
+        raise cls(**params)
+
+    raise cls(arg, **params)
+
+
+def exception_as_json_response(exc):
+    data = {
+        "type": exc.__class__.__name__,
+    }
+
+    if len(exc.args):
+        data["args"] = exc.args
+
+    data.update(exc.__dict__)
+
+    logger.debug(f"exception: {data}")
+    if "detail" in data:
+        data["msg"] = data["detail"]
+        del data["detail"]
+
+    for key, value in list(data.items()):
+        if value is None:
+            del data[key]
+
+    return {"detail": data}
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):  # pylint: disable=unused-argument
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exception_as_json_response(exc),
+    )
+
+
+async def catch_exceptions_middleware(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.exception("Uncaught exception")
+        return JSONResponse(
+            status_code=exc.status_code if hasattr(exc, "status_code") else 500,
+            content=exception_as_json_response(exc),
+        )
+
+
+app.middleware("http")(catch_exceptions_middleware)
 
 
 def start():
