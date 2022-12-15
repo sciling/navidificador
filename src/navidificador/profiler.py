@@ -24,7 +24,12 @@ def profile(desc=None):
             logger.info(f"Starting profiling of {name}")
 
             start_time = time.time()
-            ret = function(*args, **kwargs)
+            try:
+                ret = function(*args, **kwargs)
+            except Exception as err:
+                logger.info(f"Ending profiling of {name} with error. Reason: {err}")
+                raise err
+
             elapsed_time = time.time() - start_time
 
             logger.info(f"Ending profiling of {name} ({elapsed_time}s)")

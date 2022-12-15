@@ -1,4 +1,6 @@
 # pylint: disable=unused-import,no-name-in-module,too-few-public-methods
+from navidificador import logging
+
 import os
 import re
 import io
@@ -188,7 +190,7 @@ class ImageModel(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "image": read_b64('resources/mini.jpeg'),
+                "image": read_b64('resources/vader.jpg'),
                 "prompt": None,
             }
         }
@@ -200,7 +202,7 @@ class ImageResponseModel(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "images": [read_b64('resources/mini.jpeg', ensure_ascii=True)[:20] + '...'],
+                "images": [read_b64('resources/vader.jpg', ensure_ascii=True)[:20] + '...'],
             }
         }
 

@@ -8,6 +8,7 @@ import traceback
 from logging import config
 
 import sentry_sdk
+import loguru
 
 
 getLogger = logging.getLogger  # noqa: N816
@@ -42,6 +43,23 @@ sentry_tags = (
     "codebuild_webhook_head_ref",
     "codebuild_webhook_trigger",
 )
+
+
+class InterceptHandler(logging.Handler):
+    def emit(self, record):
+        # Get corresponding Loguru level if it exists.
+        try:
+            level = loguru.logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
+
+        # Find caller from where originated the logged message.
+        frame, depth = sys._getframe(6), 6
+        while frame and frame.f_code.co_filename == logging.__file__:
+            frame = frame.f_back
+            depth += 1
+
+        loguru.logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
 
 class ConsoleFormatter(logging.Formatter):
@@ -141,6 +159,12 @@ def configure_logging():
     # this logger only adds a fixed-value variable
     logging.setLoggerClass(AlarmLogger)  # NOSONAR
 
+    # remove every other logger's handlers
+    # and propagate to root logger
+    for name in logging.root.manager.loggerDict.keys():
+        logging.getLogger(name).handlers = []
+        logging.getLogger(name).propagate = True
+
     logging_level_packages = json.loads(os.getenv("LOGGING_IGNORE_PACKAGES", default_logging_packages))
     for level, packages in logging_level_packages.items():
         for package in packages:
@@ -152,9 +176,10 @@ def configure_logging():
     # Configure the logging library in a general way.
     dirname = os.path.dirname(os.path.realpath(__file__))
     if os.getenv("KUBERNETES_PORT", None):
-        config.fileConfig(os.path.join(dirname, "./kubernetes_logging_config.ini"))  # nosec # NOSONAR python:S4792
+        config.fileConfig(os.path.join(dirname, "./kubernetes_logging_config.ini"), disable_existing_loggers=False)  # nosec # NOSONAR python:S4792
     else:
-        config.fileConfig(os.path.join(dirname, "./logging_config.ini"))  # nosec # NOSONAR python:S4792
+        config.fileConfig(os.path.join(dirname, "./logging_config.ini"), disable_existing_loggers=False)  # nosec # NOSONAR python:S4792
+        logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
 
     logger = logging.getLogger(__name__)
     logger.info("Configured logging for navidificador common lib ...")

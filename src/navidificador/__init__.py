@@ -1,4 +1,4 @@
 from navidificador import logging
 
 
-# logging.configure_logging()
+logging.configure_logging()

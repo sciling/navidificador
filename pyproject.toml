@@ -23,6 +23,7 @@ python-multipart = "^0.0.5"
 python-magic = "^0.4.27"
 pillow = "^9.3.0"
 openai = "^0.25.0"
+loguru = "^0.6.0"
 
 [tool.poetry.dev-dependencies]
 autopep8 = "==1.5.7"
