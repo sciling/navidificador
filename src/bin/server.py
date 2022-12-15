@@ -1,5 +1,5 @@
-# pylint: disable=unused-import,no-name-in-module,too-few-public-methods
-from navidificador import logging
+# pylint: disable=unused-import,no-name-in-module,too-few-public-methods,wrong-import-order
+from navidificador import logging  # noqa: F401
 
 import sys
 import os
@@ -20,13 +20,13 @@ import magic
 from PIL import Image
 import openai
 
-from navidificador.profiler import profile, get_profiling_data
+from navidificador.profiler import profile, get_profiling_data  # pylint: disable=ungrouped-imports
 
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 app = FastAPI()
 
-logger.debug(f"Python {sys.version} {sys.version_info}")
+logger.debug("Python %s", sys.version.replace('\n', ' '))
 
 
 @profile(desc=0)
@@ -34,7 +34,7 @@ def api(service, data, **kwargs):
     service = service.upper()
 
     params = {
-        "timeout": 30,
+        "timeout": 60 * 2,
     }
 
     params.update(kwargs)
@@ -43,7 +43,6 @@ def api(service, data, **kwargs):
         "Authorization": f"Bearer {os.getenv('HUGGINGFACE_BEARER')}",
     }
 
-    logger.debug(f"Data is of type '{type(data)}'")
     if isinstance(data, (bytes, bytearray)):
         if not kwargs.get('mime', None):
             mime = magic.from_buffer(data, mime=True)
@@ -52,9 +51,7 @@ def api(service, data, **kwargs):
     else:
         params['json'] = data
 
-    logger.debug(f"before request to {os.getenv(service + '_HUGGINGFACE_ENDPOINT')} {headers} { {k: v for k, v in params.items() if k not in ('data', 'json')} }")
     response = requests.post(os.getenv(service + '_HUGGINGFACE_ENDPOINT'), headers=headers, **params)
-    logger.debug('after request before json')
 
     return response.json()
 
@@ -124,7 +121,7 @@ def get_inpaint(image, mask):
 async def catch_exceptions_middleware(request: Request, call_next):
     try:
         return await call_next(request)
-    except Exception:
+    except Exception:  # pylint: disable=broad-except
         # you probably want some kind of logging here
         logger.exception('Unhandled exception')
         return Response("Internal server error", status_code=500)
@@ -146,7 +143,7 @@ class UserError(Exception):
 
 
 @app.exception_handler(UserError)
-async def app_exception_handler(request: Request, exc: UserError):
+async def app_exception_handler(request: Request, exc: UserError):  # pylint: disable=unused-argument
     return JSONResponse(
         status_code=exc.detail[0].status_code,
         content=jsonable_encoder(exc),
@@ -246,6 +243,7 @@ async def process_image_json(image: ImageModel):
     return process_image(image)
 
 
+@app.post("/image-file", response_model=ImageResponseModel, responses=RESPONSES)
 async def process_image_file(image_file: UploadFile):
     image = ImageModel(image=image_to_base64(image_file))
     return process_image(image)

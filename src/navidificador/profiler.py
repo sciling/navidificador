@@ -1,6 +1,7 @@
 # Based on https://stackoverflow.com/a/3620972
 import time
 import logging
+import asyncio
 from functools import wraps
 
 PROF_DATA = {}
@@ -10,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 def profile(desc=None):
     def profile_wrap(function):
-        @wraps(function)
-        def with_profiling(*args, **kwargs):
+
+        def start_profiling(*args, **kwargs):
             name = function.__name__
             if isinstance(desc, int) and len(args) > desc:
                 name = name + ':' + args[desc]
@@ -24,12 +25,9 @@ def profile(desc=None):
             logger.debug(f"Starting profiling of {name}")
 
             start_time = time.time()
-            try:
-                ret = function(*args, **kwargs)
-            except Exception as err:
-                logger.debug(f"Ending profiling of {name} with error. Reason: {err}")
-                raise err
+            return name, start_time
 
+        def end_profiling(name, start_time):
             elapsed_time = time.time() - start_time
 
             logger.debug(f"Ending profiling of {name} ({elapsed_time}s)")
@@ -39,9 +37,38 @@ def profile(desc=None):
             PROF_DATA[name][0] += 1
             PROF_DATA[name][1].append(elapsed_time)
 
+        @wraps(function)
+        async def with_profiling_async(*args, **kwargs):
+            name, start_time = start_profiling(*args, **kwargs)
+
+            try:
+                ret = await function(*args, **kwargs)
+                logger.debug(f"with_profiling:async:{name}:{type(ret)}")
+            except Exception as err:
+                logger.debug(f"Ending profiling of {name} with error. Reason: {err}")
+                raise err
+
+            end_profiling(name, start_time)
             return ret
 
-        return with_profiling
+        @wraps(function)
+        def with_profiling_sync(*args, **kwargs):
+            name, start_time = start_profiling(*args, **kwargs)
+
+            try:
+                ret = function(*args, **kwargs)
+                logger.debug(f"with_profiling:sync:{name}:{type(ret)}")
+            except Exception as err:
+                logger.debug(f"Ending profiling of {name} with error. Reason: {err}")
+                raise err
+
+            end_profiling(name, start_time)
+            return ret
+
+        if asyncio.iscoroutine(function):
+            return with_profiling_async
+        return with_profiling_sync
+
     return profile_wrap
 
 
