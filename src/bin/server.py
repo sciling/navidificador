@@ -34,7 +34,7 @@ def api(service, data, **kwargs):
     service = service.upper()
 
     params = {
-        "timeout": 10,
+        "timeout": 30,
     }
 
     params.update(kwargs)
