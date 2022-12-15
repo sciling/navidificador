@@ -8,3 +8,8 @@ services:
     ports:
       - 127.0.0.1:8000:8000
 
+networks:
+  default:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1460
