@@ -31,9 +31,9 @@ class fstring(str):  # noqa: N801
 
 # From https://github.com/pydantic/pydantic/issues/1875#issuecomment-964395974
 class UserError(BaseModel):
-    target: str
     msg: str
     status_code: int = 400
+    target: Optional[str] = None
     data: Optional[Dict] = None
 
     class Config:
@@ -139,7 +139,11 @@ def exception_as_json_response(exc):
         if value is None:
             del data[key]
 
-    return jsonable_encoder({"detail": data})
+    try:
+        return jsonable_encoder({"detail": data})
+    except ValueError:
+        logger.exception(f"jsonable_encoder couldn't parse exception '{exc}'")
+        return jsonable_encoder({"detail": str(exc)})
 
 
 @app.exception_handler(HTTPException)

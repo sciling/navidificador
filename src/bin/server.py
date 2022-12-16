@@ -116,6 +116,7 @@ def get_inpaint(image, mask):
         "inputs": "inpaint",
         "image": image_to_base64(image, ensure_ascii=True),
         "mask": image_to_base64(mask, ensure_ascii=True),
+        "config": campaigns["navidad"]["inpaint"],
     }
     output = api("inpaint", data)
     return output
@@ -199,31 +200,29 @@ def process_image(image):
             image = Image.open(io.BytesIO(base64.b64decode(item["image"])))
             image.save(f"tmp/image{index}.jpg")
 
-    return {
-        "images": images,
-    }
+    return images
 
 
 @app.post("/image", response_model=ImageResponseModel, responses=responses)
 async def process_image_json(image: ImageModel):
-    return process_image(image)
+    return ImageResponseModel(images=process_image(image))
 
 
 @app.post("/image-file", response_model=ImageResponseModel, responses=responses)
 async def process_image_file(image_file: UploadFile):
     image = ImageModel(image=image_to_base64(image_file))
-    return process_image(image)
+    return ImageResponseModel(images=process_image(image))
 
 
 class PoemModel(BaseModel):
-    name: str
     description: str
     language: Optional[str] = "es"
+    campaign: str = "navidad"
 
     class Config:
         schema_extra = {
             "example": {
-                "name": "Cristóbal Colón",
+                "campaign": "navidad",
                 "description": clean_spaces(
                     """
                     Cristóbal Colón (Cristoforo Colombo, en italiano, o Christophorus Columbus, en latín;
@@ -240,14 +239,57 @@ class PoemModel(BaseModel):
 
 
 class PoemResponseModel(BaseModel):
-    images: List
+    text: str
 
     class Config:
         schema_extra = {
             "example": {
-                "poem": "the text of the poem",
+                "text": "the text of the poem",
             }
         }
+
+
+campaigns = {
+    "navidad": {
+        "inpaint": {
+            "prompt": clean_spaces(
+                """
+                snowy christmas card, thomas kinkade, snowing, 8k ,Wide angle cinematography of toonces,
+                a christmas eve photorealistic painting on the wall, home, interior, octane render,
+                deviantart, cinematic, key art, hyperrealism, canon eos c 3 0 0, ƒ 1. 8, 3 5 mm,
+                medium - format print
+            """
+            ),
+            "negative_prompt": clean_spaces(
+                """
+                duplicate, fog, darkness, grain, disfigured, kitsch, ugly, oversaturated, grain,
+                low-res, Deformed, blurry, bad anatomy, disfigured, poorly drawn face, mutation,
+                mutated, extra limb, ugly, poorly drawn hands, missing limb, blurry, floating limbs,
+                disconnected limbs, malformed hands, blur, out of focus, long neck, long body, ugly,
+                disgusting, poorly drawn, childish, mutilated, mangled, old, surreal, bad artist
+            """
+            ),
+            "guidance_scale": 7.5,
+            "num_samples": 4,
+            "strength": 0.4,
+            "inference_steps": 75,
+        },
+        "poem_prompt": {
+            "en": """
+                Generate a Christmas story in the form of a Shakespeare sonnet with a person named and the following CV.
+                Christmas is very important.
+
+                {poem.description}
+            """,
+            "es": """
+                Genera un cuento de Navidad en forma de soneto de Lope de Vega con una persona llamada y el siguiente currículum.
+                La Navidad es muy importante.
+
+                {poem.description}
+            """,
+        },
+    },
+}
 
 
 @app.post("/poem", response_model=PoemResponseModel, responses=responses)
@@ -256,29 +298,23 @@ async def create_poem(poem: PoemModel):
     Description should have some details of that person so that the poem can be personalized.
     """
 
-    if poem.language == "en":
-        prompt = f"""
-        Generate a Christmas story in the form of a Shakespeare sonnet with a person named {poem.name} and the following CV.
-        Christmas is very important.
+    if poem.campaign not in campaigns:
+        raise UserException(msg=f"Invalid campaign '{poem.campaign}'", target="campaign")
 
-        {poem.description}
-        """
-    else:
-        prompt = f"""
-        Genera un cuento de Navidad en forma de soneto de Lope de Vega con una persona llamada {poem.name} y el siguiente currículum.
-        La Navidad es muy importante.
+    campaign = campaigns[poem.campaign]
 
-        {poem.description}
-        """
+    if poem.language not in campaign["poem_prompt"]:
+        raise UserException(msg=f"Invalid language '{poem.language}' for campaign '{poem.campaign}'", target="language")
+
+    prompt = campaign["poem_prompt"][poem.language].format(**globals(), **locals())
 
     response = openai.Completion.create(
         engine="text-davinci-003", prompt=prompt, temperature=0.7, max_tokens=256, top_p=1.0, frequency_penalty=0.0, presence_penalty=0.0, best_of=1
     )
 
     text = response["choices"][0]["text"]
-    return {
-        "poem": text,
-    }
+    logger.debug(f"openai response: {text}")
+    return PoemResponseModel(text=text)
 
 
 def start():
