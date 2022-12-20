@@ -80,8 +80,8 @@ campaigns = {
         "poem_prompt": {
             "en": cleandoc(
                 """
-                Keeping in mind that Christmas is important, generate a Christmas story in the form of a
-                Shakespeare sonnet with good rhyme and with the following summary:
+                Taking into account that Christmas is important, generate a Christmas story in the form of a
+                Shakespeare sonnet with the following summary:
 
                 {poem.description}
             """
