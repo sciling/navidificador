@@ -20,11 +20,12 @@ URL = "https://navidificador.sciling.com"
 URL = "http://localhost:8000"
 
 
-def main(image: typer.FileBinaryRead, campaign: Optional[str] = "navidad", prompt: Optional[str] = typer.Argument(None)):
+def main(image: typer.FileBinaryRead, campaign: Optional[str] = "navidad", prompt: Optional[str] = typer.Argument(None), seed: Optional[int] = 5464587):
     data = {
         "image": image_to_base64(image.read()).decode("ascii"),
         "prompt": prompt,
         "campaign": campaign,
+        "seed": seed,
     }
 
     response = requests.post(f"{URL}/image", json=data, timeout=60)

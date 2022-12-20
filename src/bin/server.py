@@ -68,7 +68,6 @@ campaigns = {
             "strength": 0.40,
             "guidance-scale": 15,
             "inference-steps": 100,
-            "seed": 5464587,
         },
         "poem_prompt": {
             "en": cleandoc(
@@ -171,7 +170,7 @@ def get_mask(image):
     return mask
 
 
-def get_inpaint(image, mask, campaign):
+def get_inpaint(image, mask, campaign, seed=5464587):
     if "inpaint" not in campaigns[campaign]:
         raise AppException(msg=f"Campaign '{campaign}' does not have inpaint configuration.")
 
@@ -179,6 +178,7 @@ def get_inpaint(image, mask, campaign):
         "inputs": "inpaint",
         "image": image_to_base64(image, ensure_ascii=True),
         "mask": image_to_base64(mask, ensure_ascii=True),
+        "seed": seed,
     }
     data.update(campaigns[campaign]["inpaint"])
     output = api("inpaint", data)
@@ -227,12 +227,14 @@ class ImageModel(BaseModel):
     image: str
     prompt: Optional[str] = None
     campaign: str = "navidad"
+    seed: int = 5464587
 
     class Config:
         schema_extra = {
             "example": {
                 "image": read_b64("resources/vader.jpg"),
                 "campaign": "navidad",
+                "seed": 5464587,
                 "prompt": None,
             }
         }
@@ -286,7 +288,7 @@ def process_image(image):
     mask = get_mask(img)
 
     validate_image_format(img, "mask image")
-    images = get_inpaint(img, mask, image.campaign)
+    images = get_inpaint(img, mask, image.campaign, seed=image.seed)
     if "error" in images:
         raise AppException(msg=images["error"])
     logger.debug(f"IMAGES: {images.keys()}")
