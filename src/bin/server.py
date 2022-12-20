@@ -80,18 +80,16 @@ campaigns = {
         "poem_prompt": {
             "en": cleandoc(
                 """
-                Generate a Christmas story in the form of a Shakespeare sonnet with a person named and the following CV.
-                Christmas is very important.
+                Keeping in mind that Christmas is important, generate a Christmas story in the form of a
+                Shakespeare sonnet with good rhyme and with the following summary:
 
                 {poem.description}
             """
             ),
             "es": cleandoc(
                 """
-                Genera un cuento de Navidad en forma de soneto de Lope de Vega con una persona llamada y el siguiente currículum.
-                El poema tiene que tener una rima consonante.
-                Los versos tienen que rimar de dos en dos y está prohibida la rima asonante.
-                La Navidad es muy importante.
+                Teniendo en cuenta que la Navidad es importante, genera un cuento de Navidad en forma de soneto de
+                Machado con buena rima y con el siguiente resumen:
 
                 {poem.description}
             """
