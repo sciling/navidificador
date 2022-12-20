@@ -173,7 +173,7 @@ def get_mask(image, basename=None):
     try:
         mask = next((base64_to_image(im["mask"]) for im in masks if im["label"] == "person"), None)
     except Exception:  # pylint: disable=broad-except
-        logger.exception()
+        logger.exception("No person mask found")
         mask = None
 
     if mask is None:

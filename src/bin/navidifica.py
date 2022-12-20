@@ -16,7 +16,7 @@ from navidificador.logging import getLogger
 
 logger = getLogger(__name__)
 
-URL = "https://navidificador.sciling.com"
+# URL = "https://navidificador.sciling.com"
 URL = "http://localhost:8000"
 
 
