@@ -1,11 +1,13 @@
 # pylint: disable=too-few-public-methods
 import base64
 import io
+import json
 import math
 import os
 import re
 import sys
 
+from hashlib import sha256
 from inspect import cleandoc
 from typing import List
 from typing import Optional
@@ -35,6 +37,12 @@ load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 logger.debug("Python %s", sys.version.replace("\n", " "))
+
+
+def create_sha256(data):
+    sha = sha256()
+    sha.update(data)
+    return sha.hexdigest()
 
 
 def clean_spaces(text):
@@ -94,7 +102,7 @@ campaigns = {
 
 
 @profile(desc=0)
-def api(service, data, **kwargs):
+def api(service, data, dumpname=None, **kwargs):
     if service.startswith("https://"):
         url = service
     else:
@@ -121,6 +129,12 @@ def api(service, data, **kwargs):
         params["json"] = data
 
     response = requests.post(url, headers=headers, **params)
+    if response.status_code >= 400:
+        logger.error(f"RESPONSE ERROR[{service}][{response.status_code}]: {response.json()}")
+
+    if dumpname:
+        with open(dumpname, "w", encoding="utf-8") as file:
+            json.dump({"response": str(response), "body": response.json()}, file, indent=2, ensure_ascii=False)
 
     return response.json()
 
@@ -146,13 +160,14 @@ def base64_to_image(image):
 def create_full_mask(image):
     with Image.open(io.BytesIO(image)) as img:
         image_bytes = io.BytesIO()
-        Image.new("RGB", (img.size)).save(image_bytes, "PNG")
+        Image.new("RGB", (img.size)).convert("L").save(image_bytes, "PNG")
         return image_bytes.getvalue()
 
 
-def get_mask(image):
+def get_mask(image, basename=None):
     logger.debug("Invoking the masker...")
-    masks = api("mask", image)
+    dumpname = f"{basename}/mask-request.json" if basename else None
+    masks = api("mask", image, dumpname=dumpname)
     logger.debug(f"The masker found {len(masks)} masks")
 
     try:
@@ -170,7 +185,7 @@ def get_mask(image):
     return mask
 
 
-def get_inpaint(image, mask, campaign, seed=5464587):
+def get_inpaint(image, mask, campaign, seed=5464587, basename=None):
     if "inpaint" not in campaigns[campaign]:
         raise AppException(msg=f"Campaign '{campaign}' does not have inpaint configuration.")
 
@@ -181,7 +196,8 @@ def get_inpaint(image, mask, campaign, seed=5464587):
         "seed": seed,
     }
     data.update(campaigns[campaign]["inpaint"])
-    output = api("inpaint", data)
+    dumpname = f"{basename}/inpaint-request.json" if basename else None
+    output = api("inpaint", data, dumpname=dumpname)
     return output
 
 
@@ -282,24 +298,37 @@ def process_image(image):
         raise UserException(msg=f"Invalid campaign '{image.campaign}'", target="campaign")
 
     img = base64_to_image(image.image)
+
+    sha = create_sha256(img)
+    basename = f"tmp/{sha}"
+    logger.info(f"IMAGE SHA: {basename}")
+    os.makedirs(basename, exist_ok=True)
+
+    with open(f"{basename}/orig", "wb") as file:
+        file.write(img)
+    validate_image_format(img, "original image")
+
     img = resize(img, 512)
+    with open(f"{basename}/thumb.jpg", "wb") as file:
+        file.write(img)
+    validate_image_format(img, "thumb image")
 
-    validate_image_format(img, "input image")
-    mask = get_mask(img)
+    mask = get_mask(img, basename=basename)
+    with open(f"{basename}/mask.jpg", "wb") as file:
+        file.write(mask)
+    validate_image_format(mask, "mask image")
 
-    validate_image_format(img, "mask image")
-    images = get_inpaint(img, mask, image.campaign, seed=image.seed)
+    images = get_inpaint(img, mask, image.campaign, seed=image.seed, basename=basename)
     if "error" in images:
         raise AppException(msg=images["error"])
+
     logger.debug(f"IMAGES: {images.keys()}")
     images = images.pop("images", images)
 
     for index, item in enumerate(images):
         validate_image_format(base64_to_image(item["image"]), f"result image[{index}]")
-
-        if os.path.isdir("tmp"):
-            tmp_img = Image.open(io.BytesIO(base64.b64decode(item["image"])))
-            tmp_img.save(f"tmp/image{index}.jpg")
+        with open(f"{basename}/image{index}.jpg", "wb") as file:
+            file.write(base64.b64decode(item["image"]))
 
     return images
 
