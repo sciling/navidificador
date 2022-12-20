@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 from fastapi import HTTPException
 from fastapi import UploadFile
 from fastapi.logger import logger
+from PIL import ExifTags
 from PIL import Image
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
 
@@ -250,6 +251,21 @@ class ImageResponseModel(BaseModel):
 
 def resize(image, max_size):
     with Image.open(io.BytesIO(image)) as img:
+        for orientation in ExifTags.TAGS.keys():
+            if ExifTags.TAGS[orientation] == "Orientation":
+                exif = img._getexif()  # pylint: disable=protected-access
+                if exif:
+                    exif = dict(exif.items())
+
+                    if exif[orientation] == 3:
+                        img = img.rotate(180, expand=True)
+                    elif exif[orientation] == 6:
+                        img = img.rotate(270, expand=True)
+                    elif exif[orientation] == 8:
+                        img = img.rotate(90, expand=True)
+
+                break
+
         image_bytes = io.BytesIO()
 
         sorted_size = sorted(img.size)
