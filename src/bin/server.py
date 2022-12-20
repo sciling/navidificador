@@ -1,6 +1,7 @@
 # pylint: disable=too-few-public-methods
 import base64
 import io
+import math
 import os
 import re
 import sys
@@ -45,27 +46,28 @@ def clean_spaces(text):
 campaigns = {
     "navidad": {
         "inpaint": {
+            "inputs": "inpaint",
             "prompt": clean_spaces(
                 """
-                snowy christmas card, thomas kinkade, snowing, 8k ,Wide angle cinematography of toonces,
-                a christmas eve photorealistic painting on the wall, home, interior, octane render,
-                deviantart, cinematic, key art, hyperrealism, canon eos c 3 0 0, ƒ 1. 8, 3 5 mm,
-                medium - format print
+                christmas hat, scene from a christmas story, christmas card, thomas kinkade, deviantart, cinematic,
+                snowing, 8k, Christmas lights, Christmas colors muted, snow, Christmas tale, santa, Editorial Photography,
+                Highly detailed photorealistic, christmas aesthetic, a christmas eve photorealistic painting on the wall,
+                canon eos c 3 0 0, ƒ 1. 8, 3 5 mm, no blur
             """
             ),
-            "negative_prompt": clean_spaces(
+            "negative-prompt": clean_spaces(
                 """
-                duplicate, fog, darkness, grain, disfigured, kitsch, ugly, oversaturated, grain,
-                low-res, Deformed, blurry, bad anatomy, disfigured, poorly drawn face, mutation,
-                mutated, extra limb, ugly, poorly drawn hands, missing limb, blurry, floating limbs,
-                disconnected limbs, malformed hands, blur, out of focus, long neck, long body, ugly,
+                duplicate, fog, darkness, grain, disfigured, kitsch, ugly, oversaturated, grain, low-res, Deformed, blurry,
+                bad anatomy, disfigured, poorly drawn face, mutation, mutated, extra limb, ugly, poorly drawn hands, missing limb,
+                blurry, floating limbs, disconnected limbs, malformed hands, blur, out of focus, long neck, long body, ugly,
                 disgusting, poorly drawn, childish, mutilated, mangled, old, surreal, bad artist
             """
             ),
-            "guidance_scale": 7.5,
-            "num_samples": 4,
-            "strength": 0.4,
-            "inference_steps": 75,
+            "num-samples": 4,
+            "strength": 0.40,
+            "guidance-scale": 15,
+            "inference-steps": 100,
+            "seed": 5464587,
         },
         "poem_prompt": {
             "en": cleandoc(
@@ -93,7 +95,11 @@ campaigns = {
 
 @profile(desc=0)
 def api(service, data, **kwargs):
-    service = service.upper()
+    if service.startswith("https://"):
+        url = service
+    else:
+        service = service.upper()
+        url = os.getenv(service + "_HUGGINGFACE_ENDPOINT")
 
     params = {
         "timeout": 60 * 2,
@@ -111,9 +117,10 @@ def api(service, data, **kwargs):
         params["data"] = data
         headers["Content-Type"] = mime
     else:
+        logger.debug(f"JSON: {data.keys()}")
         params["json"] = data
 
-    response = requests.post(os.getenv(service + "_HUGGINGFACE_ENDPOINT"), headers=headers, **params)
+    response = requests.post(url, headers=headers, **params)
 
     return response.json()
 
@@ -171,8 +178,8 @@ def get_inpaint(image, mask, campaign):
         "inputs": "inpaint",
         "image": image_to_base64(image, ensure_ascii=True),
         "mask": image_to_base64(mask, ensure_ascii=True),
-        "config": campaigns[campaign]["inpaint"],
     }
+    data.update(campaigns[campaign]["inpaint"])
     output = api("inpaint", data)
     return output
 
@@ -241,17 +248,33 @@ class ImageResponseModel(BaseModel):
         }
 
 
+def resize(image, max_size):
+    with Image.open(io.BytesIO(image)) as img:
+        image_bytes = io.BytesIO()
+
+        sorted_size = sorted(img.size)
+        scaled_side_size = max(math.ceil(max_size * sorted_size[1] / sorted_size[0]), max_size)
+        img.thumbnail((scaled_side_size, scaled_side_size), Image.Resampling.LANCZOS)
+        img.save(image_bytes, "JPEG")
+        return image_bytes.getvalue()
+
+
 def process_image(image):
     if image.campaign not in campaigns:
         raise UserException(msg=f"Invalid campaign '{image.campaign}'", target="campaign")
 
     img = base64_to_image(image.image)
+    img = resize(img, 512)
 
     validate_image_format(img, "input image")
     mask = get_mask(img)
 
     validate_image_format(img, "mask image")
     images = get_inpaint(img, mask, image.campaign)
+    if "error" in images:
+        raise AppException(msg=images["error"])
+    logger.debug(f"IMAGES: {images.keys()}")
+    images = images.pop("images", images)
 
     for index, item in enumerate(images):
         validate_image_format(base64_to_image(item["image"]), f"result image[{index}]")
