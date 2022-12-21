@@ -99,15 +99,8 @@ campaigns = {
 }
 
 
-TEST = False
-
-
 @profile(desc=0)
 def api(service, data, dumpname=None, **kwargs):
-    if TEST:
-        logger.debug(f"Simulating {service}")
-        return {}
-
     if service.startswith("https://"):
         url = service
     else:
@@ -340,9 +333,6 @@ def process_image(image):
     logger.debug(f"IMAGES: {images.keys()}")
 
     images = images.pop("images", images)
-
-    if TEST and not images:
-        return []
 
     for index, item in enumerate(images):
         validate_image_format(base64_to_image(item["image"]), f"result image[{index}]")

@@ -116,6 +116,8 @@ async def generate_exception(request: Request, classname: str = None, arg: str =
             params[key] = int(params[key])
 
     if arg is None:
+        if cls == Exception:
+            raise cls("Unknown Error")
         raise cls(**params)
 
     raise cls(arg, **params)
@@ -154,16 +156,11 @@ async def http_exception_handler(request: Request, exc: HTTPException):  # pylin
     )
 
 
-async def catch_exceptions_middleware(request: Request, call_next):
-    try:
-        return await call_next(request)
-    except Exception as exc:  # pylint: disable=broad-except
-        logger.debug(f"Capturing uncaught exception: {type(exc)}")
-        logger.exception("Uncaught exception")
-        return JSONResponse(
-            status_code=exc.status_code if hasattr(exc, "status_code") else 500,
-            content=exception_as_json_response(exc),
-        )
-
-
-app.middleware("http")(catch_exceptions_middleware)
+@app.exception_handler(Exception)
+async def default_exception_handler(request: Request, exc: Exception):  # pylint: disable=unused-argument
+    logger.debug(f"Capturing uncaught exception: {type(exc)}")
+    logger.exception("Uncaught exception")
+    return JSONResponse(
+        status_code=exc.status_code if hasattr(exc, "status_code") else 500,
+        content=exception_as_json_response(exc),
+    )
