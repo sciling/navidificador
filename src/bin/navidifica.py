@@ -16,8 +16,8 @@ from navidificador.logging import getLogger
 
 logger = getLogger(__name__)
 
-URL = "https://navidificador.sciling.com"
-# URL = "http://localhost:8000"
+# URL = "https://navidificador.sciling.com"
+URL = "http://localhost:8000"
 
 
 def main(image: typer.FileBinaryRead, campaign: Optional[str] = "navidad", prompt: Optional[str] = typer.Argument(None), seed: Optional[int] = 5464587):
@@ -28,7 +28,7 @@ def main(image: typer.FileBinaryRead, campaign: Optional[str] = "navidad", promp
         "seed": seed,
     }
 
-    response = requests.post(f"{URL}/image", json=data, timeout=60)
+    response = requests.post(f"{URL}/image", json=data, timeout=600)
     logger.debug(f"RESPONSE: {response}")
     images = response.json()
     if response.status_code >= 400:

@@ -216,13 +216,13 @@ def validate_image_format(image, target, width=(512, 2048), height=(512, 2048), 
             validation_error(target, f"Width is too small {img.size[0]} < {width[0]}.")
 
         if img.size[0] > width[1]:
-            validation_error(target, f"Width is too small {img.size[0]} < {width[1]}.")
+            validation_error(target, f"Width is too big {img.size[0]} > {width[1]}.")
 
         if img.size[1] < height[0]:
-            validation_error(target, f"Width is too small {img.size[1]} < {height[0]}.")
+            validation_error(target, f"Height is too small {img.size[1]} < {height[0]}.")
 
         if img.size[1] > height[1]:
-            validation_error(target, f"Width is too small {img.size[1]} < {height[1]}.")
+            validation_error(target, f"Height is too big {img.size[1]} < {height[1]}.")
 
     return True
 
@@ -265,7 +265,7 @@ class ImageResponseModel(BaseModel):
         }
 
 
-def resize(image, max_size):
+def resize(image, max_size, mode=None):
     with Image.open(io.BytesIO(image)) as img:
         for orientation in ExifTags.TAGS.keys():
             if ExifTags.TAGS[orientation] == "Orientation":
@@ -281,6 +281,9 @@ def resize(image, max_size):
                         img = img.rotate(90, expand=True)
 
                 break
+
+        if mode:
+            img = img.convert(mode)
 
         image_bytes = io.BytesIO()
 
@@ -304,9 +307,8 @@ def process_image(image):
 
     with open(f"{basename}/orig", "wb") as file:
         file.write(img)
-    validate_image_format(img, "original image")
 
-    img = resize(img, 512)
+    img = resize(img, 512, mode="RGB")
     with open(f"{basename}/thumb.jpg", "wb") as file:
         file.write(img)
     validate_image_format(img, "thumb image")
