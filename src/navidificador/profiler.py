@@ -1,5 +1,5 @@
 # Based on https://stackoverflow.com/a/3620972
-import asyncio
+import inspect
 import logging
 import time
 
@@ -66,7 +66,8 @@ def profile(desc=None):
             end_profiling(name, start_time)
             return ret
 
-        if asyncio.iscoroutine(function):
+        logger.debug(f"PROFILER: {inspect.iscoroutinefunction(function)} {function}")
+        if inspect.iscoroutinefunction(function):
             return with_profiling_async
         return with_profiling_sync
 

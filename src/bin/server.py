@@ -12,9 +12,9 @@ from inspect import cleandoc
 from typing import List
 from typing import Optional
 
+import httpx
 import magic
 import openai
-import requests
 
 from dotenv import load_dotenv
 from fastapi import HTTPException
@@ -100,7 +100,7 @@ campaigns = {
 
 
 @profile(desc=0)
-def api(service, data, dumpname=None, **kwargs):
+async def api(service, data, dumpname=None, **kwargs):
     if service.startswith("https://"):
         url = service
     else:
@@ -126,7 +126,9 @@ def api(service, data, dumpname=None, **kwargs):
         logger.debug(f"JSON: {data.keys()}")
         params["json"] = data
 
-    response = requests.post(url, headers=headers, **params)
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, headers=headers, **params)
+
     if response.status_code >= 400:
         logger.error(f"RESPONSE ERROR[{service}][{response.status_code}]: {response.json()}")
 
@@ -162,10 +164,10 @@ def create_full_mask(image):
         return image_bytes.getvalue()
 
 
-def get_mask(image, basename=None):
+async def get_mask(image, basename=None):
     logger.debug("Invoking the masker...")
     dumpname = f"{basename}/mask-request.json" if basename else None
-    masks = api("mask", image, dumpname=dumpname)
+    masks = await api("mask", image, dumpname=dumpname)
     logger.debug(f"The masker found {len(masks)} masks")
 
     try:
@@ -183,7 +185,7 @@ def get_mask(image, basename=None):
     return mask
 
 
-def get_inpaint(image, mask, campaign, seed=5464587, basename=None):
+async def get_inpaint(image, mask, campaign, seed=5464587, basename=None):
     if "inpaint" not in campaigns[campaign]:
         raise AppException(msg=f"Campaign '{campaign}' does not have inpaint configuration.")
 
@@ -195,7 +197,7 @@ def get_inpaint(image, mask, campaign, seed=5464587, basename=None):
     }
     data.update(campaigns[campaign]["inpaint"])
     dumpname = f"{basename}/inpaint-request.json" if basename else None
-    output = api("inpaint", data, dumpname=dumpname)
+    output = await api("inpaint", data, dumpname=dumpname)
     return output
 
 
@@ -302,7 +304,8 @@ def resize(image, max_size, mode=None):
         return image_bytes.getvalue()
 
 
-def process_image(image):
+@profile()
+async def process_image(image):
     if image.campaign not in campaigns:
         raise UserException(msg=f"Invalid campaign '{image.campaign}'", target="campaign")
 
@@ -321,12 +324,12 @@ def process_image(image):
         file.write(img)
     validate_image_format(img, "thumb image")
 
-    mask = get_mask(img, basename=basename)
+    mask = await get_mask(img, basename=basename)
     with open(f"{basename}/mask.jpg", "wb") as file:
         file.write(mask)
     validate_image_format(mask, "mask image")
 
-    images = get_inpaint(img, mask, image.campaign, seed=image.seed, basename=basename)
+    images = await get_inpaint(img, mask, image.campaign, seed=image.seed, basename=basename)
     if "error" in images:
         raise AppException(msg=images["error"])
 
@@ -343,22 +346,16 @@ def process_image(image):
 
 
 @app.post("/image", response_model=ImageResponseModel, responses=responses)
+@profile()
 async def process_image_json(image: ImageModel):
-    @profile()
-    def run_image():
-        return ImageResponseModel(images=process_image(image))
-
-    return run_image()
+    return ImageResponseModel(images=await process_image(image))
 
 
 @app.post("/image-file", response_model=ImageResponseModel, responses=responses)
+@profile()
 async def process_image_file(image_file: UploadFile):
-    @profile()
-    def run_image_file():
-        image = ImageModel(image=image_to_base64(image_file))
-        return ImageResponseModel(images=process_image(image))
-
-    return run_image_file()
+    image = ImageModel(image=image_to_base64(image_file))
+    return ImageResponseModel(images=await process_image(image))
 
 
 class PoemModel(BaseModel):
@@ -397,32 +394,29 @@ class PoemResponseModel(BaseModel):
 
 
 @app.post("/poem", response_model=PoemResponseModel, responses=responses)
+@profile()
 async def create_poem(poem: PoemModel):
     """Produces a Christmas poem addressed to a specific person.
     Description should have some details of that person so that the poem can be personalized.
     """
 
-    @profile()
-    def run_create_poem():
-        if poem.campaign not in campaigns:
-            raise UserException(msg=f"Invalid campaign '{poem.campaign}'", target="campaign")
+    if poem.campaign not in campaigns:
+        raise UserException(msg=f"Invalid campaign '{poem.campaign}'", target="campaign")
 
-        campaign = campaigns[poem.campaign]
+    campaign = campaigns[poem.campaign]
 
-        if poem.language not in campaign["poem_prompt"]:
-            raise UserException(msg=f"Invalid language '{poem.language}' for campaign '{poem.campaign}'", target="language")
+    if poem.language not in campaign["poem_prompt"]:
+        raise UserException(msg=f"Invalid language '{poem.language}' for campaign '{poem.campaign}'", target="language")
 
-        prompt = campaign["poem_prompt"][poem.language].format(**globals(), **locals())
+    prompt = campaign["poem_prompt"][poem.language].format(**globals(), **locals())
 
-        response = openai.Completion.create(
-            engine="text-davinci-003", prompt=prompt, temperature=0.7, max_tokens=256, top_p=1.0, frequency_penalty=0.0, presence_penalty=0.0, best_of=1
-        )
+    response = openai.Completion.create(
+        engine="text-davinci-003", prompt=prompt, temperature=0.7, max_tokens=256, top_p=1.0, frequency_penalty=0.0, presence_penalty=0.0, best_of=1
+    )
 
-        text = response["choices"][0]["text"]
-        logger.debug(f"openai response: {text}")
-        return PoemResponseModel(text=text)
-
-    return run_create_poem()
+    text = response["choices"][0]["text"]
+    logger.debug(f"openai response: {text}")
+    return PoemResponseModel(text=text)
 
 
 def start():
