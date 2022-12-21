@@ -99,8 +99,15 @@ campaigns = {
 }
 
 
+TEST = False
+
+
 @profile(desc=0)
 def api(service, data, dumpname=None, **kwargs):
+    if TEST:
+        logger.debug(f"Simulating {service}")
+        return {}
+
     if service.startswith("https://"):
         url = service
     else:
@@ -270,15 +277,23 @@ def resize(image, max_size, mode=None):
         for orientation in ExifTags.TAGS.keys():
             if ExifTags.TAGS[orientation] == "Orientation":
                 exif = img._getexif()  # pylint: disable=protected-access
-                if exif:
-                    exif = dict(exif.items())
+                if not exif:
+                    break
 
-                    if exif[orientation] == 3:
-                        img = img.rotate(180, expand=True)
-                    elif exif[orientation] == 6:
-                        img = img.rotate(270, expand=True)
-                    elif exif[orientation] == 8:
-                        img = img.rotate(90, expand=True)
+                exif = dict(exif.items())
+                if orientation not in exif:
+                    break
+                orient = exif[orientation]
+
+                if not isinstance(orient, int):
+                    break
+
+                if orient == 3:
+                    img = img.rotate(180, expand=True)
+                elif orient == 6:
+                    img = img.rotate(270, expand=True)
+                elif orient == 8:
+                    img = img.rotate(90, expand=True)
 
                 break
 
@@ -323,7 +338,11 @@ def process_image(image):
         raise AppException(msg=images["error"])
 
     logger.debug(f"IMAGES: {images.keys()}")
+
     images = images.pop("images", images)
+
+    if TEST and not images:
+        return []
 
     for index, item in enumerate(images):
         validate_image_format(base64_to_image(item["image"]), f"result image[{index}]")
@@ -335,13 +354,21 @@ def process_image(image):
 
 @app.post("/image", response_model=ImageResponseModel, responses=responses)
 async def process_image_json(image: ImageModel):
-    return ImageResponseModel(images=process_image(image))
+    @profile()
+    def run_image():
+        return ImageResponseModel(images=process_image(image))
+
+    return run_image()
 
 
 @app.post("/image-file", response_model=ImageResponseModel, responses=responses)
 async def process_image_file(image_file: UploadFile):
-    image = ImageModel(image=image_to_base64(image_file))
-    return ImageResponseModel(images=process_image(image))
+    @profile()
+    def run_image_file():
+        image = ImageModel(image=image_to_base64(image_file))
+        return ImageResponseModel(images=process_image(image))
+
+    return run_image_file()
 
 
 class PoemModel(BaseModel):
@@ -385,23 +412,27 @@ async def create_poem(poem: PoemModel):
     Description should have some details of that person so that the poem can be personalized.
     """
 
-    if poem.campaign not in campaigns:
-        raise UserException(msg=f"Invalid campaign '{poem.campaign}'", target="campaign")
+    @profile()
+    def run_create_poem():
+        if poem.campaign not in campaigns:
+            raise UserException(msg=f"Invalid campaign '{poem.campaign}'", target="campaign")
 
-    campaign = campaigns[poem.campaign]
+        campaign = campaigns[poem.campaign]
 
-    if poem.language not in campaign["poem_prompt"]:
-        raise UserException(msg=f"Invalid language '{poem.language}' for campaign '{poem.campaign}'", target="language")
+        if poem.language not in campaign["poem_prompt"]:
+            raise UserException(msg=f"Invalid language '{poem.language}' for campaign '{poem.campaign}'", target="language")
 
-    prompt = campaign["poem_prompt"][poem.language].format(**globals(), **locals())
+        prompt = campaign["poem_prompt"][poem.language].format(**globals(), **locals())
 
-    response = openai.Completion.create(
-        engine="text-davinci-003", prompt=prompt, temperature=0.7, max_tokens=256, top_p=1.0, frequency_penalty=0.0, presence_penalty=0.0, best_of=1
-    )
+        response = openai.Completion.create(
+            engine="text-davinci-003", prompt=prompt, temperature=0.7, max_tokens=256, top_p=1.0, frequency_penalty=0.0, presence_penalty=0.0, best_of=1
+        )
 
-    text = response["choices"][0]["text"]
-    logger.debug(f"openai response: {text}")
-    return PoemResponseModel(text=text)
+        text = response["choices"][0]["text"]
+        logger.debug(f"openai response: {text}")
+        return PoemResponseModel(text=text)
+
+    return run_create_poem()
 
 
 def start():

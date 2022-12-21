@@ -2,6 +2,7 @@
 
 import base64
 import io
+import time
 
 from typing import Optional
 
@@ -28,7 +29,10 @@ def main(image: typer.FileBinaryRead, campaign: Optional[str] = "navidad", promp
         "seed": seed,
     }
 
+    start_time = time.time()
     response = requests.post(f"{URL}/image", json=data, timeout=600)
+    elapsed_time = time.time() - start_time
+
     logger.debug(f"RESPONSE: {response}")
     images = response.json()
     if response.status_code >= 400:
@@ -38,6 +42,8 @@ def main(image: typer.FileBinaryRead, campaign: Optional[str] = "navidad", promp
     for index, item in enumerate(images["images"]):
         image = Image.open(io.BytesIO(base64.b64decode(item["image"])))
         image.save(f"resultImages/image{index}.jpg")
+
+    logger.debug(f"Ending profiling: ({elapsed_time}s)")
 
 
 if __name__ == "__main__":
