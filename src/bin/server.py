@@ -411,7 +411,7 @@ async def create_poem(poem: PoemModel):
     prompt = campaign["poem_prompt"][poem.language].format(**globals(), **locals())
 
     response = openai.Completion.create(
-        engine="text-davinci-003", prompt=prompt, temperature=0.7, max_tokens=256, top_p=1.0, frequency_penalty=0.0, presence_penalty=0.0, best_of=1
+        engine="text-davinci-003", prompt=prompt, temperature=0.7, max_tokens=512, top_p=1.0, frequency_penalty=0.0, presence_penalty=0.0, best_of=1
     )
 
     text = response["choices"][0]["text"]
