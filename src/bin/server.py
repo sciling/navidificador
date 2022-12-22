@@ -81,15 +81,58 @@ campaigns = {
             "en": cleandoc(
                 """
                 Taking into account that Christmas is important, generate a Christmas story in the form of a
-                Shakespeare sonnet with the following summary:
+                Shakespeare sonnet with maximum four strophes, without title, and with good rhyme, with the following summary:
 
                 {poem.description}
             """
             ),
             "es": cleandoc(
                 """
-                Teniendo en cuenta que la Navidad es importante, genera un cuento de Navidad en forma de soneto de
-                Machado con buena rima y con el siguiente resumen:
+                Teniendo en cuenta que la Navidad es importante, genera un cuento de Navidad en forma de soneto de Machado,
+                sin título, con máximo cuatro estrofas y con buena rima y con el siguiente resumen:
+
+                {poem.description}
+            """
+            ),
+        },
+    },
+    "cumpleaños": {
+        "inpaint": {
+            "inputs": "inpaint",
+            "prompt": clean_spaces(
+                """
+                epic, scene from a superhero movie, deviantart, cinematic,
+                snowing, 8k, Christmas lights, Christmas colors muted, snow, Christmas tale, santa, Editorial Photography,
+                Highly detailed photorealistic, christmas aesthetic, a christmas eve photorealistic painting on the wall,
+                canon eos c 3 0 0, ƒ 1. 8, 3 5 mm, no blur
+            """
+            ),
+            "negative-prompt": clean_spaces(
+                """
+                duplicate, fog, darkness, grain, disfigured, kitsch, ugly, oversaturated, grain, low-res, Deformed, blurry,
+                bad anatomy, disfigured, poorly drawn face, mutation, mutated, extra limb, ugly, poorly drawn hands, missing limb,
+                blurry, floating limbs, disconnected limbs, malformed hands, blur, out of focus, long neck, long body, ugly,
+                disgusting, poorly drawn, childish, mutilated, mangled, old, surreal, bad artist
+            """
+            ),
+            "num-samples": 4,
+            "strength": 0.40,
+            "guidance-scale": 15,
+            "inference-steps": 100,
+        },
+        "poem_prompt": {
+            "en": cleandoc(
+                """
+                Taking into account that it is this person's birthday, generate a friendship story from the group of friends.
+                Congratulating the birthday in the form of a sonnet by Shakespeare with good rhyme and with the following summary:
+
+                {poem.description}
+            """
+            ),
+            "es": cleandoc(
+                """
+                Teniendo en cuenta que es el cumpleaños de esta persona, genera un cuento de amistad del grupo de amigos
+                felicitando al cumpleañero en forma de soneto de Machado con buena rima y con el siguiente resumen:
 
                 {poem.description}
             """
