@@ -436,6 +436,30 @@ class PoemResponseModel(BaseModel):
         }
 
 
+def limit_poem(text: str, max_lines: int = 16):
+    lines = text.split("\n")
+    res = []
+    n_lines = 0
+    n_latest_block = 0
+    for line in lines:
+        if n_lines >= max_lines:
+            break
+
+        if len(line) > 0:
+            n_lines += 1
+            n_latest_block += 1
+        elif len(res) > 0 and n_latest_block <= 1:
+            res.pop()
+            n_latest_block = 0
+
+        res.append(line)
+
+    limited = "\n".join(res)
+    limited = re.sub(r"^\n*", "", limited)
+    limited = re.sub(r"\n*$", "", limited)
+    return limited
+
+
 @app.post("/poem", response_model=PoemResponseModel, responses=responses)
 @profile()
 async def create_poem(poem: PoemModel):
@@ -458,6 +482,7 @@ async def create_poem(poem: PoemModel):
     )
 
     text = response["choices"][0]["text"]
+    text = limit_poem(text)
     logger.debug(f"openai response: {text}")
     return PoemResponseModel(text=text)
 
