@@ -450,6 +450,7 @@ def limit_poem(text: str, max_lines: int = 16):
             n_latest_block += 1
         elif len(res) > 0 and n_latest_block <= 1:
             res.pop()
+            n_lines -= 1
             n_latest_block = 0
 
         res.append(line)
