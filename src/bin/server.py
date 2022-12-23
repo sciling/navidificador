@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 from fastapi import HTTPException
 from fastapi import UploadFile
 from fastapi.logger import logger
+from fastapi.staticfiles import StaticFiles
 from PIL import ExifTags
 from PIL import Image
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
@@ -486,6 +487,9 @@ async def create_poem(poem: PoemModel):
     text = limit_poem(text)
     logger.debug(f"openai response: {text}")
     return PoemResponseModel(text=text)
+
+
+app.mount("/", StaticFiles(directory="templates", html=True), name="templates")
 
 
 def start():
