@@ -14,6 +14,7 @@ from typing import Optional
 
 import httpx
 import magic
+import numpy as np
 import openai
 
 from dotenv import load_dotenv
@@ -208,14 +209,53 @@ def create_full_mask(image):
         return image_bytes.getvalue()
 
 
+def image_to_mask(image):
+    return np.array(Image.open(io.BytesIO(image)).convert("1"))
+
+
+KEEP_MASK = {
+    "person",
+    "individual",
+    "someone",
+    "somebody",
+    "mortal",
+    "soul",
+    "animal",
+    "animate",
+    "being",
+    "beast",
+    "brute",
+    "creature",
+    "fauna",
+    "bird",
+    "cat",
+    "dog",
+    "horse",
+    "sheep",
+    "cow",
+    "elephant",
+    "bear",
+    "zebra",
+    "giraffe",
+}
+
+
 async def get_mask(image, basename=None):
     logger.debug("Invoking the masker...")
     dumpname = f"{basename}/mask-request.json" if basename else None
     masks = await api("mask", image, dumpname=dumpname)
-    logger.debug(f"The masker found {len(masks)} masks")
+    logger.debug(f"The masker found {len(masks)} masks: { {im['label'] for im in masks} }")
 
     try:
-        mask = next((base64_to_image(im["mask"]) for im in masks if im["label"] == "person"), None)
+        pil_masks = [image_to_mask(base64_to_image(im["mask"])) for im in masks if im["label"] in KEEP_MASK]
+        mask = pil_masks[0]
+        for pil in pil_masks[1:]:
+            mask += pil
+
+        image_bytes = io.BytesIO()
+        Image.fromarray(mask).convert("L").save(image_bytes, "PNG")
+        mask = image_bytes.getvalue()
+
     except Exception:  # pylint: disable=broad-except
         logger.exception("No person mask found")
         mask = None

@@ -17,8 +17,8 @@ from navidificador.logging import getLogger
 
 logger = getLogger(__name__)
 
-URL = "https://navidificador.sciling.com"
-# URL = "http://localhost:8000"
+# URL = "https://navidificador.sciling.com"
+URL = "http://localhost:8000"
 
 
 def main(image: typer.FileBinaryRead, campaign: Optional[str] = "navidad", prompt: Optional[str] = typer.Argument(None), seed: Optional[int] = 5464587):
