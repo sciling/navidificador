@@ -21,8 +21,7 @@ from dotenv import load_dotenv
 from fastapi import HTTPException
 from fastapi import UploadFile
 from fastapi.logger import logger
-
-# from fastapi.staticfiles import StaticFiles
+from fastapi.staticfiles import StaticFiles
 from PIL import ExifTags
 from PIL import Image
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
@@ -228,9 +227,14 @@ async def api(service, data, dumpname=None, **kwargs):
     return response.json()
 
 
-def read_b64(filename, ensure_ascii=False):
+def get_filename(filename):
     base_dir = os.path.dirname(os.path.realpath(__file__))
     filename = os.path.join(base_dir, "..", filename)
+    return filename
+
+
+def read_b64(filename, ensure_ascii=False):
+    filename = get_filename(filename)
     with open(filename, "rb") as file:
         return image_to_base64(file.read(), ensure_ascii=ensure_ascii)
 
@@ -586,7 +590,7 @@ async def create_poem(poem: PoemModel):
     return PoemResponseModel(text=text)
 
 
-# app.mount("/", StaticFiles(directory="templates", html=True), name="templates")
+app.mount("/", StaticFiles(directory=get_filename("templates"), html=True), name="templates")
 
 
 def start():

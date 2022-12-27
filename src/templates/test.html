@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>New Yearificador</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <style>
+      img {
+        margin: auto;
+        display: block;
+        padding: 10px;
+      }
+    </style>
+  </head>
+  <body>
+  <form action="javascript:void(0);">
+    <input type="file" name="img" id="image">
+    <img id="base64Img" />
+    <img id="base64Img1" />
+    <img id="base64Img2" />
+    <img id="base64Img3" />
+    <img id="base64Img4" />
+  </form>
+  </body>
+  <script type="text/javascript">
+    $('#image').on('change', function(element) {
+      var img = this.files[0];
+
+      var reader = new FileReader();
+
+      reader.onloadend = function() {
+        let base64 = reader.result;
+        $("#base64Img").attr("src", base64);
+        base64 = base64.split('base64,')[1];
+
+        for (let i=0; i < 4; i++) {
+          $("#base64Img" + (i + 1)).attr("src", "https://upload.wikimedia.org/wikipedia/commons/b/b1/Loading_icon.gif");
+        }
+
+
+        $.post({
+          url: '/image',
+          data: JSON.stringify({
+            campaign: 'newyear',
+            image: base64,
+          }),
+          success: function(res) {
+            console.log('RES', res)
+            for (let i=0; i < res.images.length; i++) {
+              $("#base64Img" + (i + 1)).attr("src", "data:image/jpeg;base64," + res.images[i].image);
+            }
+          },
+          contentType : 'application/json',
+          dataType: 'json'
+        });
+      }
+
+      reader.readAsDataURL(img);
+    });
+  </script>
+</html>
