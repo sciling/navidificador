@@ -572,7 +572,7 @@ async def create_poem(poem: PoemModel):
     return PoemResponseModel(text=text)
 
 
-app.mount("/", StaticFiles(directory="templates", html=True), name="templates")
+# app.mount("/", StaticFiles(directory="templates", html=True), name="templates")
 
 
 def start():

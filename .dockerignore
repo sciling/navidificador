@@ -12,3 +12,4 @@ doc
 lib
 .reports
 tests
+tmp
