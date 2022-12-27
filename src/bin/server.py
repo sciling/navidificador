@@ -571,7 +571,7 @@ async def create_poem(poem: PoemModel):
 
     campaign_data = campaigns[campaign]
 
-    if poem.language not in campaign["poem_prompt"]:
+    if poem.language not in campaign_data["poem_prompt"]:
         raise UserException(msg=f"Invalid language '{poem.language}' for campaign '{campaign}'", target="language")
 
     prompt = campaign_data["poem_prompt"][poem.language].format(**globals(), **locals())
