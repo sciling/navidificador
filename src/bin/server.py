@@ -21,7 +21,8 @@ from dotenv import load_dotenv
 from fastapi import HTTPException
 from fastapi import UploadFile
 from fastapi.logger import logger
-from fastapi.staticfiles import StaticFiles
+
+# from fastapi.staticfiles import StaticFiles
 from PIL import ExifTags
 from PIL import Image
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
@@ -372,6 +373,7 @@ class ImageModel(BaseModel):
     image: str
     prompt: Optional[str] = None
     campaign: str = "navidad"
+    debug_campaign: Optional[str] = None
     seed: int = 5464587
 
     class Config:
@@ -434,9 +436,14 @@ def resize(image, max_size, mode=None):
 
 
 @profile()
-async def process_image(image):
-    if image.campaign not in campaigns:
-        raise UserException(msg=f"Invalid campaign '{image.campaign}'", target="campaign")
+async def process_image(image: ImageModel):
+    campaign = image.campaign
+    if image.debug_campaign:
+        campaign = image.debug_campaign
+    logger.debug(f"SET CAMPAIGN: {campaign} (debug: {bool(image.debug_campaign)})")
+
+    if campaign not in campaigns:
+        raise UserException(msg=f"Invalid campaign '{campaign}'", target="campaign")
 
     img = base64_to_image(image.image)
 
@@ -458,7 +465,7 @@ async def process_image(image):
         file.write(mask)
     validate_image_format(mask, "mask image")
 
-    images = await get_inpaint(img, mask, image.campaign, seed=image.seed, basename=basename)
+    images = await get_inpaint(img, mask, campaign, seed=image.seed, basename=basename)
     if "error" in images:
         raise AppException(msg=images["error"])
 
@@ -491,6 +498,7 @@ class PoemModel(BaseModel):
     description: str
     language: Optional[str] = "es"
     campaign: str = "navidad"
+    debug_campaign: Optional[str] = None
 
     class Config:
         schema_extra = {
@@ -553,16 +561,20 @@ async def create_poem(poem: PoemModel):
     """Produces a Christmas poem addressed to a specific person.
     Description should have some details of that person so that the poem can be personalized.
     """
+    campaign = poem.campaign
+    if poem.debug_campaign:
+        campaign = poem.debug_campaign
+    logger.debug(f"SET CAMPAIGN: {campaign} (debug: {bool(poem.debug_campaign)})")
 
-    if poem.campaign not in campaigns:
-        raise UserException(msg=f"Invalid campaign '{poem.campaign}'", target="campaign")
+    if campaign not in campaigns:
+        raise UserException(msg=f"Invalid campaign '{campaign}'", target="campaign")
 
-    campaign = campaigns[poem.campaign]
+    campaign_data = campaigns[campaign]
 
     if poem.language not in campaign["poem_prompt"]:
-        raise UserException(msg=f"Invalid language '{poem.language}' for campaign '{poem.campaign}'", target="language")
+        raise UserException(msg=f"Invalid language '{poem.language}' for campaign '{campaign}'", target="language")
 
-    prompt = campaign["poem_prompt"][poem.language].format(**globals(), **locals())
+    prompt = campaign_data["poem_prompt"][poem.language].format(**globals(), **locals())
 
     response = openai.Completion.create(
         engine="text-davinci-003", prompt=prompt, temperature=0.7, max_tokens=512, top_p=1.0, frequency_penalty=0.0, presence_penalty=0.0, best_of=1
