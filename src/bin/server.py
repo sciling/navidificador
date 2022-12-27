@@ -289,15 +289,17 @@ async def get_mask(image, basename=None):
     masks = await api("mask", image, dumpname=dumpname)
     logger.debug(f"The masker found {len(masks)} masks: { {im['label'] for im in masks} }")
 
+    mask = None
     try:
         pil_masks = [image_to_mask(base64_to_image(im["mask"])) for im in masks if im["label"] in KEEP_MASK]
-        mask = pil_masks[0]
-        for pil in pil_masks[1:]:
-            mask += pil
+        if len(pil_masks):
+            mask = pil_masks[0]
+            for pil in pil_masks[1:]:
+                mask += pil
 
-        image_bytes = io.BytesIO()
-        Image.fromarray(mask).convert("L").save(image_bytes, "PNG")
-        mask = image_bytes.getvalue()
+            image_bytes = io.BytesIO()
+            Image.fromarray(mask).convert("L").save(image_bytes, "PNG")
+            mask = image_bytes.getvalue()
 
     except Exception:  # pylint: disable=broad-except
         logger.exception("No person mask found")
