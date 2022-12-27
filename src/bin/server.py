@@ -98,6 +98,49 @@ campaigns = {
             ),
         },
     },
+    "newyear": {
+        "inpaint": {
+            "inputs": "inpaint",
+            "prompt": clean_spaces(
+                """
+                ((31 december)), new year’s eve, golden shimmer, confetti, party,  ((( fireworks))), ((confeti)),  32k,new year,
+                happy new year, gold, silver,  year two thousand 2010, champagne, cheers, stars, golden stars, Christmas ornaments,
+                christmas ligths ,((canon eos c 3 0 0, ƒ 1. 8))), 3 5 mm, no blur, golden shimmer, midnight with ((fireworks exploding)) ,
+                clear night ,photo, expert, insanely detailed
+            """
+            ),
+            "negative-prompt": clean_spaces(
+                """
+                duplicate, fog, darkness, grain, disfigured, kitsch, ugly, oversaturated, grain, low-res, Deformed, blurry,
+                bad anatomy, disfigured, poorly drawn face, mutation, mutated, extra limb, ugly, poorly drawn hands, missing limb,
+                blurry, floating limbs, disconnected limbs, malformed hands, blur, out of focus, long neck, long body, ugly,
+                disgusting, poorly drawn, childish, mutilated, mangled, old, surreal, bad artist
+            """
+            ),
+            "num-samples": 4,
+            "strength": 0.40,
+            "guidance-scale": 15,
+            "inference-steps": 100,
+        },
+        "poem_prompt": {
+            "en": cleandoc(
+                """
+                Taking into account that Christmas is important, generate a Christmas story in the form of a
+                Shakespeare sonnet with maximum four strophes, without title, and with good rhyme, with the following summary:
+
+                {poem.description}
+            """
+            ),
+            "es": cleandoc(
+                """
+                Teniendo en cuenta que la Navidad es importante, genera un cuento de Navidad en forma de soneto de Machado,
+                sin título, con máximo cuatro estrofas y con buena rima y con el siguiente resumen:
+
+                {poem.description}
+            """
+            ),
+        },
+    },
     "cumpleaños": {
         "inpaint": {
             "inputs": "inpaint",
