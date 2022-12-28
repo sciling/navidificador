@@ -103,10 +103,9 @@ campaigns = {
             "inputs": "inpaint",
             "prompt": clean_spaces(
                 """
-                confetti, golden shimmer, new year, new year’s eve, scene from a christmas story, christmas card, thomas kinkade,
-                deviantart, cinematic,snowing, 8k, Christmas lights, Christmas colors muted, snow, Christmas tale, santa,
+                confetti, golden shimmer, new year, new year’s eve, deviantart, cinematic,snowing, 8k,
                 Editorial Photography, Highly detailed photorealistic, christmas aesthetic,
-                a christmas eve photorealistic painting on the wall, canon eos c 3 0 0, ƒ 1. 8, 3 5 mm, no blur
+                a new year's eve photorealistic fireworks on the background, canon eos c 3 0 0, ƒ 1. 8, 3 5 mm, no blur
             """
             ),
             "negative-prompt": clean_spaces(
@@ -125,16 +124,16 @@ campaigns = {
         "poem_prompt": {
             "en": cleandoc(
                 """
-                Taking into account that Christmas is important, generate a Christmas story in the form of a
-                Shakespeare sonnet with maximum four strophes, without title, and with good rhyme, with the following summary:
+                To wish happy new year, write a story in the form of a Shakespeare sonnet,
+                cheerful and festive, with the following summary:
 
                 {poem.description}
             """
             ),
             "es": cleandoc(
                 """
-                Teniendo en cuenta que la Navidad es importante, genera un cuento de Navidad en forma de soneto de Machado,
-                sin título, con máximo cuatro estrofas y con buena rima y con el siguiente resumen:
+                Para felicitar el año nuevo, escribe un cuento en forma de soneto de Machado,
+                alegre y festivo, con el siguiente resumen:
 
                 {poem.description}
             """
