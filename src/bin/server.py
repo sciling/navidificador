@@ -105,12 +105,25 @@ campaigns = {
     "newyear": {
         "inpaint": {
             "inputs": "inpaint",
+            "mask-prompts": {
+                "sky": clean_spaces("(((fireworks))), midnight with ((fireworks exploding))"),
+                "wall": clean_spaces("new year's ornaments on the walls"),
+                "ceiling": clean_spaces("new year's ornaments on the walls"),
+            },
+            "mask-negative-prompts": {
+                "wall": clean_spaces("(((fireworks))), midnight with ((fireworks exploding))"),
+            },
             "prompt": clean_spaces(
                 """
-                confetti, golden shimmer, New Year, New Year’s eve, deviantart, cinematic, 8k,
-                Editorial Photography, Highly detailed photorealistic, New Year aesthetic,
-                New Year's eve photorealistic fireworks in the background, canon eos c 3 0 0, ƒ 1. 8, 3 5 mm, no blur
+                ((31 december)), new year’s eve, golden shimmer, party, ((confetti)), 32k, new year, happy new year,
+                gold, silver, year two thousand 2010, champagne, cheers, stars, golden stars, new year's ornaments, new year's ligths,
+                ((canon eos c 3 0 0, ƒ 1. 8))), 3 5 mm, no blur, golden shimmer, clear night,
+                photo, expert, insanely detailed
             """
+                # ((31 december)), new year’s eve, golden shimmer, party, (((fireworks))), ((confetti)), 32k, new year, happy new year,
+                # gold, silver, year two thousand 2010, champagne, cheers, stars, golden stars, Christmas ornaments, christmas ligths,
+                # ((canon eos c 3 0 0, ƒ 1. 8))), 3 5 mm, no blur, golden shimmer, midnight with ((fireworks exploding)), clear night,
+                # photo, expert, insanely detailed
             ),
             "negative-prompt": clean_spaces(
                 """
@@ -121,7 +134,7 @@ campaigns = {
             """
             ),
             "num-samples": 4,
-            "strength": 0.40,
+            "strength": 0.50,
             "guidance-scale": 15,
             "inference-steps": 100,
         },
@@ -252,7 +265,8 @@ async def get_mask(image, basename=None):
     logger.debug("Invoking the masker...")
     dumpname = f"{basename}/mask-request.json" if basename else None
     masks = await api("mask", image, dumpname=dumpname)
-    logger.debug(f"The masker found {len(masks)} masks: { {im['label'] for im in masks} }")
+    labels = {im['label'] for im in masks}
+    logger.debug(f"The masker found {len(masks)} masks: {labels}")
 
     mask = None
     try:
@@ -276,10 +290,10 @@ async def get_mask(image, basename=None):
     if mask is None:
         raise HTTPException(status_code=500, detail="Could not generate a mask image")
 
-    return mask
+    return mask, labels
 
 
-async def get_inpaint(image, mask, campaign, seed=5464587, basename=None, prompt=None, negative_prompt=None):
+async def get_inpaint(image, mask, campaign, labels=None, seed=5464587, basename=None, prompt=None, negative_prompt=None, strength=None):
     if "inpaint" not in campaigns[campaign]:
         raise AppException(msg=f"Campaign '{campaign}' does not have inpaint configuration.")
 
@@ -291,10 +305,30 @@ async def get_inpaint(image, mask, campaign, seed=5464587, basename=None, prompt
         "seed": seed,
     }
     config.update(data)
-    if prompt:
+
+    if prompt is not None and clean_spaces(prompt) != clean_spaces(config["prompt"]):
         config["prompt"] = prompt
-    if negative_prompt:
+    else:
+        conf_masks = config.get('mask-prompts', {})
+        if labels and conf_masks:
+            logger.debug(f"MASKS: {labels}; PROMPTS: {conf_masks}")
+            cond_prompt = list({clean_spaces(mod) for label in labels if label in conf_masks for mod in conf_masks[label].split(',')})
+            cond_prompt.append(config["prompt"])
+            config["prompt"] = ", ".join(cond_prompt)
+
+    if negative_prompt is not None and clean_spaces(negative_prompt) != clean_spaces(config["negative-prompt"]):
         config["negative-prompt"] = negative_prompt
+    else:
+        conf_masks = config.get('mask-negative-prompts', {})
+        if labels and conf_masks:
+            logger.debug(f"MASKS: {labels}; NEGATIVE PROMPTS: {conf_masks}")
+            cond_prompt = [conf_masks[label] for label in labels if label in conf_masks]
+            cond_prompt.append(config["negative-prompt"])
+            config["negative-prompt"] = ", ".join(cond_prompt)
+
+
+    if strength is not None:
+        config["strength"] = strength
 
     logger.debug(f"CONFIG: { {k: v for k, v in config.items() if k not in ('image', 'mask')} }")
     dumpname = f"{basename}/inpaint-request.json" if basename else None
@@ -346,6 +380,7 @@ class ImageModel(BaseModel):
     negative_prompt: Optional[str] = None
     campaign: str = "navidad"
     debug_campaign: Optional[str] = None
+    strength: Optional[float] = None
     seed: int = 5464587
 
     class Config:
@@ -432,12 +467,12 @@ async def process_image(image: ImageModel):
         file.write(img)
     validate_image_format(img, "thumb image")
 
-    mask = await get_mask(img, basename=basename)
+    mask, labels = await get_mask(img, basename=basename)
     with open(f"{basename}/mask.jpg", "wb") as file:
         file.write(mask)
     validate_image_format(mask, "mask image")
 
-    images = await get_inpaint(img, mask, campaign, seed=image.seed, basename=basename, prompt=image.prompt, negative_prompt=image.negative_prompt)
+    images = await get_inpaint(img, mask, campaign, labels=labels, seed=image.seed, basename=basename, prompt=image.prompt, negative_prompt=image.negative_prompt, strength=image.strength)
     if "error" in images:
         raise AppException(msg=images["error"])
 
