@@ -103,10 +103,10 @@ campaigns = {
             "inputs": "inpaint",
             "prompt": clean_spaces(
                 """
-                ((31 december)), new year’s eve, golden shimmer, confetti, party,  ((( fireworks))), ((confeti)),  32k,new year,
-                happy new year, gold, silver,  year two thousand 2010, champagne, cheers, stars, golden stars, Christmas ornaments,
-                christmas ligths ,((canon eos c 3 0 0, ƒ 1. 8))), 3 5 mm, no blur, golden shimmer, midnight with ((fireworks exploding)) ,
-                clear night ,photo, expert, insanely detailed
+                confetti, golden shimmer, new year, new year’s eve, scene from a christmas story, christmas card, thomas kinkade,
+                deviantart, cinematic,snowing, 8k, Christmas lights, Christmas colors muted, snow, Christmas tale, santa,
+                Editorial Photography, Highly detailed photorealistic, christmas aesthetic,
+                a christmas eve photorealistic painting on the wall, canon eos c 3 0 0, ƒ 1. 8, 3 5 mm, no blur
             """
             ),
             "negative-prompt": clean_spaces(
