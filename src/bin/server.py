@@ -1,5 +1,6 @@
 # pylint: disable=too-few-public-methods
 import base64
+import copy
 import io
 import json
 import math
@@ -19,9 +20,12 @@ import openai
 
 from dotenv import load_dotenv
 from fastapi import HTTPException
+from fastapi import Request
 from fastapi import UploadFile
 from fastapi.logger import logger
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from PIL import ExifTags
 from PIL import Image
 from pydantic import BaseModel  # pylint: disable=no-name-in-module
@@ -103,9 +107,9 @@ campaigns = {
             "inputs": "inpaint",
             "prompt": clean_spaces(
                 """
-                confetti, golden shimmer, new year, new year’s eve, deviantart, cinematic,snowing, 8k,
-                Editorial Photography, Highly detailed photorealistic, christmas aesthetic,
-                a new year's eve photorealistic fireworks on the background, canon eos c 3 0 0, ƒ 1. 8, 3 5 mm, no blur
+                confetti, golden shimmer, New Year, New Year’s eve, deviantart, cinematic, 8k,
+                Editorial Photography, Highly detailed photorealistic, New Year aesthetic,
+                New Year's eve photorealistic fireworks in the background, canon eos c 3 0 0, ƒ 1. 8, 3 5 mm, no blur
             """
             ),
             "negative-prompt": clean_spaces(
@@ -134,49 +138,6 @@ campaigns = {
                 """
                 Para felicitar el año nuevo, escribe un cuento en forma de soneto de Machado,
                 alegre y festivo, con el siguiente resumen:
-
-                {poem.description}
-            """
-            ),
-        },
-    },
-    "cumpleaños": {
-        "inpaint": {
-            "inputs": "inpaint",
-            "prompt": clean_spaces(
-                """
-                epic, scene from a superhero movie, deviantart, cinematic,
-                snowing, 8k, Christmas lights, Christmas colors muted, snow, Christmas tale, santa, Editorial Photography,
-                Highly detailed photorealistic, christmas aesthetic, a christmas eve photorealistic painting on the wall,
-                canon eos c 3 0 0, ƒ 1. 8, 3 5 mm, no blur
-            """
-            ),
-            "negative-prompt": clean_spaces(
-                """
-                duplicate, fog, darkness, grain, disfigured, kitsch, ugly, oversaturated, grain, low-res, Deformed, blurry,
-                bad anatomy, disfigured, poorly drawn face, mutation, mutated, extra limb, ugly, poorly drawn hands, missing limb,
-                blurry, floating limbs, disconnected limbs, malformed hands, blur, out of focus, long neck, long body, ugly,
-                disgusting, poorly drawn, childish, mutilated, mangled, old, surreal, bad artist
-            """
-            ),
-            "num-samples": 4,
-            "strength": 0.40,
-            "guidance-scale": 15,
-            "inference-steps": 100,
-        },
-        "poem_prompt": {
-            "en": cleandoc(
-                """
-                Taking into account that it is this person's birthday, generate a friendship story from the group of friends.
-                Congratulating the birthday in the form of a sonnet by Shakespeare with good rhyme and with the following summary:
-
-                {poem.description}
-            """
-            ),
-            "es": cleandoc(
-                """
-                Teniendo en cuenta que es el cumpleaños de esta persona, genera un cuento de amistad del grupo de amigos
-                felicitando al cumpleañero en forma de soneto de Machado con buena rima y con el siguiente resumen:
 
                 {poem.description}
             """
@@ -318,19 +279,26 @@ async def get_mask(image, basename=None):
     return mask
 
 
-async def get_inpaint(image, mask, campaign, seed=5464587, basename=None):
+async def get_inpaint(image, mask, campaign, seed=5464587, basename=None, prompt=None, negative_prompt=None):
     if "inpaint" not in campaigns[campaign]:
         raise AppException(msg=f"Campaign '{campaign}' does not have inpaint configuration.")
 
+    config = copy.deepcopy(campaigns[campaign]["inpaint"])
     data = {
         "inputs": "inpaint",
         "image": image_to_base64(image, ensure_ascii=True),
         "mask": image_to_base64(mask, ensure_ascii=True),
         "seed": seed,
     }
-    data.update(campaigns[campaign]["inpaint"])
+    config.update(data)
+    if prompt:
+        config["prompt"] = prompt
+    if negative_prompt:
+        config["negative-prompt"] = negative_prompt
+
+    logger.debug(f"CONFIG: { {k: v for k, v in config.items() if k not in ('image', 'mask')} }")
     dumpname = f"{basename}/inpaint-request.json" if basename else None
-    output = await api("inpaint", data, dumpname=dumpname)
+    output = await api("inpaint", config, dumpname=dumpname)
     return output
 
 
@@ -375,6 +343,7 @@ async def stats():
 class ImageModel(BaseModel):
     image: str
     prompt: Optional[str] = None
+    negative_prompt: Optional[str] = None
     campaign: str = "navidad"
     debug_campaign: Optional[str] = None
     seed: int = 5464587
@@ -468,7 +437,7 @@ async def process_image(image: ImageModel):
         file.write(mask)
     validate_image_format(mask, "mask image")
 
-    images = await get_inpaint(img, mask, campaign, seed=image.seed, basename=basename)
+    images = await get_inpaint(img, mask, campaign, seed=image.seed, basename=basename, prompt=image.prompt, negative_prompt=image.negative_prompt)
     if "error" in images:
         raise AppException(msg=images["error"])
 
@@ -587,6 +556,14 @@ async def create_poem(poem: PoemModel):
     text = limit_poem(text)
     logger.debug(f"openai response: {text}")
     return PoemResponseModel(text=text)
+
+
+templates = Jinja2Templates(directory=get_filename("templates"))
+
+
+@app.get("/{page}.html", response_class=HTMLResponse)
+async def read_page(request: Request, page: str):
+    return templates.TemplateResponse(f"{page}.html", {"request": request, "campaigns": campaigns})
 
 
 app.mount("/", StaticFiles(directory=get_filename("templates"), html=True), name="templates")

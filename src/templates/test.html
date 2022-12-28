@@ -18,7 +18,22 @@
   </head>
   <body>
   <form action="javascript:void(0);">
-    <input type="file" name="img" id="image">
+    <div><label>campaña: </label>
+      <select id="campaign">
+      {% for key, value in campaigns.items() %}
+        <option value="{{key}}" data='{{value | tojson}}'
+        {% if (key == 'newyear') %} selected="selected" {% endif %}
+        >
+        {{key}}
+        </option>
+      {% endfor %}
+      </select>
+    </div>
+    <div><input type="file" name="img" id="image" /></div>
+    <div><label>seed</label><input type="number" value="5464587" /></div>
+    <div><label>prompt positivo</label><textarea cols="100" rows="4" id="prompt-pos"></textarea></div>
+    <div><label>prompt negativo</label><textarea cols="100" rows="4" id="prompt-neg"></textarea></div>
+    <div><button id="envia">Envia</button></div>
     <pre id="error"></pre>
     <img id="base64Img" />
     <img id="base64Img1" class="result"/>
@@ -28,48 +43,69 @@
   </form>
   </body>
   <script type="text/javascript">
+
+    function updatePrompts() {
+      let data = JSON.parse($("#campaign option:selected").attr('data'));
+      $('#prompt-pos').text(data.inpaint['prompt']);
+      $('#prompt-neg').text(data.inpaint['negative-prompt']);
+    }
+
+    $(document).ready(updatePrompts)
+    $('#campaign').on('change', updatePrompts);
+
+    let base64 = null;
+
     $('#image').on('change', function(element) {
-      var img = this.files[0];
+      var img = $('#image')[0].files[0];
 
       var reader = new FileReader();
 
       reader.onloadend = function() {
-        let base64 = reader.result;
+        base64 = reader.result;
         $("#base64Img").attr("src", base64);
         base64 = base64.split('base64,')[1];
-
-        $('#error').hide();
-        $('.result').show();
-
-        for (let i=0; i < 4; i++) {
-          $("#base64Img" + (i + 1)).attr("src", "https://upload.wikimedia.org/wikipedia/commons/b/b1/Loading_icon.gif");
-        }
-
-        $.post({
-          url: '/image',
-          data: JSON.stringify({
-            campaign: 'newyear',
-            image: base64,
-          }),
-          success: function(res) {
-            console.log('RES', res)
-            for (let i=0; i < res.images.length; i++) {
-              $("#base64Img" + (i + 1)).attr("src", "data:image/jpeg;base64," + res.images[i].image);
-            }
-            $('.result').show();
-          },
-          error: function(xhr, status, error) {
-            console.log('ERROR', xhr);
-            $('#error').text(JSON.stringify(xhr.responseJSON));
-            $('#error').show();
-            $('.result').hide();
-          },
-          contentType : 'application/json',
-          dataType: 'json'
-        });
       }
 
       reader.readAsDataURL(img);
+    });
+
+    $('#envia').on('click', function(element) {
+      $('#error').hide();
+      $('.result').show();
+
+      for (let i=0; i < 4; i++) {
+        $("#base64Img" + (i + 1)).attr("src", "https://upload.wikimedia.org/wikipedia/commons/b/b1/Loading_icon.gif");
+      }
+
+      let body = {
+        campaign: 'newyear',
+        image: base64,
+        prompt: $('#prompt-pos').val(),
+        negative_prompt: $('#prompt-neg').val(),
+        seed: $('#seed').val(),
+      }
+
+      console.log('BODY', body);
+
+      $.post({
+        url: '/image',
+        data: JSON.stringify(body),
+        success: function(res) {
+          console.log('RES', res)
+          for (let i=0; i < res.images.length; i++) {
+            $("#base64Img" + (i + 1)).attr("src", "data:image/jpeg;base64," + res.images[i].image);
+          }
+          $('.result').show();
+        },
+        error: function(xhr, status, error) {
+          console.log('ERROR', xhr);
+          $('#error').text(JSON.stringify(xhr.responseJSON));
+          $('#error').show();
+          $('.result').hide();
+        },
+        contentType : 'application/json',
+        dataType: 'json'
+      });
     });
   </script>
 </html>
