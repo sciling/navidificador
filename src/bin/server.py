@@ -59,7 +59,7 @@ def clean_spaces(text):
 
 
 campaigns = {
-    "navidad": {
+    "navidad_old": {
         "inpaint": {
             "inputs": "inpaint",
             "prompt": clean_spaces(
@@ -102,7 +102,7 @@ campaigns = {
             ),
         },
     },
-    "newyear": {
+    "navidad": {
         "inpaint": {
             "inputs": "inpaint",
             "mask-prompts": {
@@ -265,7 +265,7 @@ async def get_mask(image, basename=None):
     logger.debug("Invoking the masker...")
     dumpname = f"{basename}/mask-request.json" if basename else None
     masks = await api("mask", image, dumpname=dumpname)
-    labels = {im['label'] for im in masks}
+    labels = {im["label"] for im in masks}
     logger.debug(f"The masker found {len(masks)} masks: {labels}")
 
     mask = None
@@ -309,23 +309,22 @@ async def get_inpaint(image, mask, campaign, labels=None, seed=5464587, basename
     if prompt is not None and clean_spaces(prompt) != clean_spaces(config["prompt"]):
         config["prompt"] = prompt
     else:
-        conf_masks = config.get('mask-prompts', {})
+        conf_masks = config.get("mask-prompts", {})
         if labels and conf_masks:
             logger.debug(f"MASKS: {labels}; PROMPTS: {conf_masks}")
-            cond_prompt = list({clean_spaces(mod) for label in labels if label in conf_masks for mod in conf_masks[label].split(',')})
+            cond_prompt = list({clean_spaces(mod) for label in labels if label in conf_masks for mod in conf_masks[label].split(",")})
             cond_prompt.append(config["prompt"])
             config["prompt"] = ", ".join(cond_prompt)
 
     if negative_prompt is not None and clean_spaces(negative_prompt) != clean_spaces(config["negative-prompt"]):
         config["negative-prompt"] = negative_prompt
     else:
-        conf_masks = config.get('mask-negative-prompts', {})
+        conf_masks = config.get("mask-negative-prompts", {})
         if labels and conf_masks:
             logger.debug(f"MASKS: {labels}; NEGATIVE PROMPTS: {conf_masks}")
             cond_prompt = [conf_masks[label] for label in labels if label in conf_masks]
             cond_prompt.append(config["negative-prompt"])
             config["negative-prompt"] = ", ".join(cond_prompt)
-
 
     if strength is not None:
         config["strength"] = strength
@@ -472,7 +471,17 @@ async def process_image(image: ImageModel):
         file.write(mask)
     validate_image_format(mask, "mask image")
 
-    images = await get_inpaint(img, mask, campaign, labels=labels, seed=image.seed, basename=basename, prompt=image.prompt, negative_prompt=image.negative_prompt, strength=image.strength)
+    images = await get_inpaint(
+        img,
+        mask,
+        campaign,
+        labels=labels,
+        seed=image.seed,
+        basename=basename,
+        prompt=image.prompt,
+        negative_prompt=image.negative_prompt,
+        strength=image.strength,
+    )
     if "error" in images:
         raise AppException(msg=images["error"])
 
