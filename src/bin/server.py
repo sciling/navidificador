@@ -157,6 +157,61 @@ campaigns = {
             ),
         },
     },
+    "newyear": {
+        "inpaint": {
+            "inputs": "inpaint",
+            "mask-prompts": {
+                "sky": clean_spaces("(((fireworks))), midnight with ((fireworks exploding))"),
+                "wall": clean_spaces("new year's ornaments on the walls"),
+                "ceiling": clean_spaces("new year's ornaments on the walls"),
+            },
+            "mask-negative-prompts": {
+                "wall": clean_spaces("(((fireworks))), midnight with ((fireworks exploding))"),
+            },
+            "prompt": clean_spaces(
+                """
+                ((31 december)), new year’s eve, golden shimmer, party, ((confetti)), 32k, new year, happy new year,
+                gold, silver, year two thousand 2010, champagne, cheers, stars, golden stars, new year's ornaments, new year's ligths,
+                ((canon eos c 3 0 0, ƒ 1. 8))), 3 5 mm, no blur, golden shimmer, clear night,
+                photo, expert, insanely detailed
+            """
+                # ((31 december)), new year’s eve, golden shimmer, party, (((fireworks))), ((confetti)), 32k, new year, happy new year,
+                # gold, silver, year two thousand 2010, champagne, cheers, stars, golden stars, Christmas ornaments, christmas ligths,
+                # ((canon eos c 3 0 0, ƒ 1. 8))), 3 5 mm, no blur, golden shimmer, midnight with ((fireworks exploding)), clear night,
+                # photo, expert, insanely detailed
+            ),
+            "negative-prompt": clean_spaces(
+                """
+                duplicate, fog, darkness, grain, disfigured, kitsch, ugly, oversaturated, grain, low-res, Deformed, blurry,
+                bad anatomy, disfigured, poorly drawn face, mutation, mutated, extra limb, ugly, poorly drawn hands, missing limb,
+                blurry, floating limbs, disconnected limbs, malformed hands, blur, out of focus, long neck, long body, ugly,
+                disgusting, poorly drawn, childish, mutilated, mangled, old, surreal, bad artist
+            """
+            ),
+            "num-samples": 4,
+            "strength": 0.50,
+            "guidance-scale": 15,
+            "inference-steps": 100,
+        },
+        "poem_prompt": {
+            "en": cleandoc(
+                """
+                To wish happy new year, write a story in the form of a Shakespeare sonnet,
+                cheerful and festive, with the following summary:
+
+                {poem.description}
+            """
+            ),
+            "es": cleandoc(
+                """
+                Para felicitar el año nuevo, escribe un cuento en forma de soneto de Machado,
+                alegre y festivo, con el siguiente resumen:
+
+                {poem.description}
+            """
+            ),
+        },
+    },
 }
 
 
