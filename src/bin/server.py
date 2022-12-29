@@ -116,12 +116,12 @@ campaigns = {
             "prompt": clean_spaces(
                 """
                 ((31 december)), new year’s eve, golden shimmer, party, ((confetti)), 32k, new year, happy new year,
-                gold, silver, year two thousand 2010, champagne, cheers, stars, golden stars, new year's ornaments, new year's ligths,
+                gold, silver, year two thousand 2010, champagne, cheers, stars, golden stars, new year's ornaments, new year's lights,
                 ((canon eos c 3 0 0, ƒ 1. 8))), 3 5 mm, no blur, golden shimmer, clear night,
                 photo, expert, insanely detailed
             """
                 # ((31 december)), new year’s eve, golden shimmer, party, (((fireworks))), ((confetti)), 32k, new year, happy new year,
-                # gold, silver, year two thousand 2010, champagne, cheers, stars, golden stars, Christmas ornaments, christmas ligths,
+                # gold, silver, year two thousand 2010, champagne, cheers, stars, golden stars, Christmas ornaments, Christmas lights,
                 # ((canon eos c 3 0 0, ƒ 1. 8))), 3 5 mm, no blur, golden shimmer, midnight with ((fireworks exploding)), clear night,
                 # photo, expert, insanely detailed
             ),
